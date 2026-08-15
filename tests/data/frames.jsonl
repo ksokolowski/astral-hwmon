@@ -1,0 +1,3 @@
+{"note": "idle, GPU at 18 W - captured 2026-08-13 via i2cget -y 4 0x2b 0x80 i 32", "raw": "2f8801cc2f8801e02f8801a42f9001b82f8001b82f9001a42f80053c00000000", "expect_ma": [420, 440, 440, 420, 480, 460], "expect_mv": [12176, 12160, 12176, 12168, 12168, 12168]}
+{"note": "idle, slightly warmer - same session", "raw": "2f8802082f8802302f8801e02f9001f42f8801f42f9001e02f8005dc00000000", "expect_ma": [480, 500, 500, 480, 560, 520], "expect_mv": [12176, 12168, 12176, 12168, 12168, 12168]}
+{"note": "ALL-ZEROS FAILURE MODE - what i2ctransfer w1@0x2b 0x80 r24 returns on this bus. Must be rejected, never decoded as a safe reading.", "raw": "000000000000000000000000000000010000000100330000", "reject": true}

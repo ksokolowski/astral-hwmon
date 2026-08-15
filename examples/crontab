@@ -1,0 +1,13 @@
+# Example only. Not installed.
+#
+# Runs as any user; no privileges are required. --quiet prints nothing when the
+# result is OK, so cron mails you only when something is wrong.
+#
+# Install with: crontab -e
+
+*/5 * * * * /usr/bin/astral-guard --quiet
+
+# A longer sample window costs a few more seconds and makes a transient even
+# less likely to be reported:
+#
+# */5 * * * * /usr/bin/astral-guard --quiet --samples 10

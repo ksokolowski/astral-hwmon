@@ -1,0 +1,42 @@
+name: Bug report
+description: Something the driver or astral-guard does wrong
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before anything else, two things this project will not do, so nobody spends
+        effort arguing for them:
+
+        - The driver publishes **no thresholds and no alarms**. The hwmon ABI reserves
+          `*_alarm` for status bits read from the chip, and this chip has no comparator —
+          established by sweeping its whole address space. See `docs/GUARD-DESIGN.md` §1.
+        - The driver is **read-only by construction**. There is no write callback and no
+          parameter that adds one.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected instead
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce it
+    validations:
+      required: true
+  - type: textarea
+    id: dmesg
+    attributes:
+      label: Kernel log
+      description: "`journalctl -k | grep astral-hwmon`"
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Card, distribution, kernel, NVIDIA driver and astral-hwmon version
+      placeholder: ROG Astral RTX 5090 OC, Ubuntu 26.04, 7.0.0-29-generic, NVIDIA 610.43.02, astral-hwmon 0.2.0
+    validations:
+      required: true

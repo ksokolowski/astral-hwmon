@@ -1,0 +1,69 @@
+name: Card report
+description: Report whether the driver works on your Astral card, listed or not
+title: "card: <your model> — <works / does not work>"
+labels: ["card-report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Eight Astral subsystem IDs are in the driver's table; **one** has actually been
+        read on Linux. The other seven are listed on the assumption that the sensor block
+        is identical across the family, which is exactly the kind of assumption that needs
+        a second machine to check.
+
+        A report either way is useful. "It works" is what promotes an id from *inherited*
+        to *verified*; "it doesn't" is what stops the next person wasting an evening.
+
+        Everything below is read-only and needs no privileges beyond `modprobe`.
+  - type: input
+    id: model
+    attributes:
+      label: Card model
+      description: As printed on the box or shown by GPU-Z / GeForce Experience.
+      placeholder: ROG Astral RTX 5080 OC
+    validations:
+      required: true
+  - type: textarea
+    id: lspci
+    attributes:
+      label: lspci output
+      description: "`lspci -nn -d 10de:` — this carries the subsystem id, which is what the driver matches on."
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: sensors
+    attributes:
+      label: sensors output
+      description: |
+        `sensors` after `sudo modprobe astral-hwmon`. If your id is not in the table yet,
+        use `sudo modprobe astral-hwmon allow_unknown=1` — that relaxes the model list only,
+        never the NVIDIA vendor check, so it cannot reach an unrelated bus.
+
+        Six voltages near 12 V and six currents that move with load is a working card.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: dmesg
+    attributes:
+      label: Kernel log
+      description: "`journalctl -k | grep astral-hwmon` — the staged probe says which stage it got to, which is the whole diagnostic if nothing appeared."
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Distribution, kernel and NVIDIA driver version
+      placeholder: Ubuntu 26.04, 7.0.0-29-generic, NVIDIA 610.43.02
+    validations:
+      required: true
+  - type: textarea
+    id: guard
+    attributes:
+      label: astral-guard output (optional)
+      description: "`astral-guard --json` after `make guard`. Useful because the rule thresholds have only ever been applied to one card."
+      render: shell
+    validations:
+      required: false

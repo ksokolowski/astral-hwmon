@@ -1,0 +1,104 @@
+.TH ASTRAL-GUARD 1 "2026-08-15" "astral-hwmon" "User Commands"
+.SH NAME
+astral\-guard \- check the 12VHPWR connector of an ASUS ROG Astral card
+.SH SYNOPSIS
+.B astral\-guard
+.RI [ options ]
+.SH DESCRIPTION
+Reads the per\-pin voltages and currents published by the
+.B astral\-hwmon
+driver, samples them a few times, applies a fixed set of connector rules and
+exits with a monitoring\-plugin status code.
+.PP
+It requires no configuration, no calibration and no privileges: every attribute
+it reads is world\-readable, and all of them are opened read\-only. It never
+writes anything.
+.PP
+A finding is reported only if it holds in every sample of a run. This is
+deliberate: the vendor's own tool is documented to report spurious 0 A and
+over\-current readings immediately after resume from sleep, and a single\-sample
+verdict would inherit that.
+.SH OPTIONS
+.TP
+.B \-\-json
+Machine\-readable output, including the thresholds that were applied.
+.TP
+.BI \-\-samples " N"
+Samples per run. Default 5.
+.TP
+.BI \-\-interval " MS"
+Milliseconds between samples. Defaults to the chip's own
+.IR update_interval .
+Sampling faster than that only re\-reads the driver's cache.
+.TP
+.BI \-\-sysfs\-root " PATH"
+Where sysfs is mounted. Defaults to
+.IR /sys .
+.TP
+.BI \-\-warn\-ratio " PCT"
+The min/max warning threshold, as a percentage. Provisional \- see LIMITATIONS.
+.TP
+.BI \-\-note\-ratio " PCT"
+The min/max advisory threshold. Advisory findings are printed but never change
+the exit code.
+.TP
+.B \-\-quiet
+Print only when the result is not OK. Useful from
+.BR cron (8),
+which then mails only on a problem.
+.TP
+.B \-\-version
+Print the version and exit.
+.SH RULES
+.TP
+.B pin\-current
+WARNING at 9.2 A on any pin, CRITICAL at 9.5 A. Never gated.
+.TP
+.B open\-pin
+CRITICAL when a pin carries under 0.5 A while the connector as a whole draws at
+least 10 A. A pin that has stopped conducting pushes its share onto its
+neighbours.
+.TP
+.B imbalance
+The ratio of the least\-loaded to the most\-loaded pin, evaluated only above 20 A
+total. Advisory below 85%, WARNING below 70%, CRITICAL below 60%.
+.TP
+.B voltage
+WARNING when the lowest pin falls below 11.4 V, CRITICAL below 11.0 V.
+.SH EXIT STATUS
+.TP
+.B 0
+OK.
+.TP
+.B 1
+WARNING.
+.TP
+.B 2
+CRITICAL.
+.TP
+.B 3
+UNKNOWN \- no chip found, or a channel could not be read. Losing sight of the
+current is a fault, not silence.
+.SH LIMITATIONS
+Absolute rules only. Without a per\-card baseline this catches a connector that
+is already near failure, not one drifting toward it.
+.PP
+Current is a proxy for the contact heating that actually melts connectors. A
+green result is not a temperature claim.
+.PP
+The warning threshold for imbalance is provisional. It is set at a value one
+commercial monitor abandoned as too noisy, kept as a warning rather than an
+alarm for that reason, and is expected to move as more cards are measured.
+.PP
+Resume behaviour has been measured on one machine and for S3 sleep only: no
+spurious reading appeared, reads during the window failed rather than
+returning a decodable frame, and the verdict was OK within a tenth of a second
+of wake. Hibernate and s2idle are untested, as is every card but one.
+.SH FILES
+.TP
+.I /sys/class/hwmon/hwmon*/
+Located by the
+.I name
+attribute, never by index.
+.SH SEE ALSO
+.BR sensors (1)

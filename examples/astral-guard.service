@@ -1,0 +1,19 @@
+# Example only. Not installed, not enabled - copy it if you want it.
+#
+# astral-guard makes no init-system assumption; this file exists because
+# systemd is common, not because the tool needs it. cron, runit, s6 and any
+# monitoring agent work equally well with the same exit codes.
+
+[Unit]
+Description=Check the 12VHPWR connector
+Documentation=man:astral-guard(1)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/astral-guard --quiet
+# No User= is needed: every attribute astral-guard reads is world-readable and
+# opened read-only. Running it as root buys nothing.
+DynamicUser=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateNetwork=yes

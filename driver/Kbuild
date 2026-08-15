@@ -1,0 +1,3 @@
+obj-m += astral-hwmon.o
+astral-hwmon-objs := astral_hwmon.o astral_detect.o astral_regs.o
+ccflags-y := -Wall -Wextra -Wno-unused-parameter

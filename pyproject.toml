@@ -1,0 +1,47 @@
+# Tool configuration only. Nothing here is distributed - no build backend,
+# no packaging. Python exists to orchestrate and verify the kernel driver.
+[project]
+name = "astral-oracle"
+version = "0.2.1"
+description = "Userspace oracle and hardware test harness for the astral-hwmon driver"
+# MIT, like everything outside driver/ and tests/native/ - see LICENSE. The
+# kernel module is GPL-2.0-only; this harness never links against it.
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = []
+
+# Without this uv would try to build this project as an installable package,
+# which fails by design: there is no build backend and nothing to install.
+[tool.uv]
+package = false
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.1",
+    "ruff>=0.3",
+    "mypy>=1.0",
+    "pre-commit>=3.6",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "SIM", "C4", "RUF", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+addopts = "-v"
+markers = [
+    "hardware: requires a supported ASUS ROG Astral card (skipped when absent)",
+]
+
+[tool.mypy]
+python_version = "3.10"
+mypy_path = "src"
+warn_unused_configs = true
+ignore_missing_imports = true
+check_untyped_defs = true

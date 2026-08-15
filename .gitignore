@@ -1,0 +1,26 @@
+# Kernel build artefacts
+*.o
+*.ko
+*.mod
+*.mod.c
+*.cmd
+.*.cmd
+.tmp_versions/
+Module.symvers
+modules.order
+driver/.tmp_versions/
+
+# Python / uv
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+__pycache__/
+
+# Built load generator
+tools/burn
+tests/native/astral-native-tests
+tests/guard/astral-guard-tests
+guard/astral-guard

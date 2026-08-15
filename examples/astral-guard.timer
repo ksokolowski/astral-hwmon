@@ -1,0 +1,17 @@
+# Example only. Not installed, not enabled.
+# Enable with: systemctl enable --now astral-guard.timer
+#
+# Five minutes is a starting point, not a recommendation. Each run samples for
+# about a second, so the cost is negligible either way.
+
+[Unit]
+Description=Check the 12VHPWR connector periodically
+Documentation=man:astral-guard(1)
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

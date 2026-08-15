@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Mechanical enforcement of two repo rules: Conventional Commits, and a single
+# named author on every commit. Both are inherited from olduvai and
+# StyledConsole.
+set -euo pipefail
+
+msg_file="$1"
+# Strip comment lines - git's own template is full of them.
+body="$(grep -v '^[[:space:]]*#' "$msg_file" || true)"
+
+if printf '%s' "$body" | grep -qiE '^[[:space:]]*co-authored-by:'; then
+    echo "commit-msg: Co-Authored-By trailers are not used here." >&2
+    echo "  This repository records a single author." >&2
+    exit 1
+fi
+
+if printf '%s' "$body" | grep -qiE 'generated with|🤖'; then
+    echo "commit-msg: commit messages carry no tooling footers." >&2
+    echo "  Describe the change; the tools used to make it are not the record." >&2
+    exit 1
+fi
+
+subject="$(printf '%s' "$body" | grep -v '^[[:space:]]*$' | head -1)"
+pattern='^(feat|fix|docs|refactor|test|chore|build|ci|perf|style|revert)(\([a-z0-9._-]+\))?!?: .+'
+if ! printf '%s' "$subject" | grep -qE "$pattern"; then
+    echo "commit-msg: subject must follow Conventional Commits." >&2
+    echo "  Got:      $subject" >&2
+    echo "  Expected: feat|fix|docs|refactor|test|chore|build|ci|perf|style|revert(scope): description" >&2
+    exit 1
+fi

@@ -1,0 +1,134 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # The commit-msg hook lives in scripts/hooks and git never clones hooks, so on
+  # any fresh clone the repo rules are unenforced until someone runs `make setup`.
+  # This job is the enforcement that actually travels.
+  commit-rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Check commit messages
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            range="${{ github.event.pull_request.base.sha }}..HEAD"
+          else
+            before="${{ github.event.before }}"
+            # A new branch reports an all-zero "before", and a force-push can
+            # name a commit this clone no longer has. Both must fall back
+            # rather than fail the job for a reason unrelated to the messages.
+            range="$before..HEAD"
+            case "$before" in
+              ''|0000000000000000000000000000000000000000) range="HEAD~1..HEAD" ;;
+              *) git cat-file -e "$before" 2>/dev/null || range="HEAD~1..HEAD" ;;
+            esac
+          fi
+          fail=0
+          for sha in $(git rev-list "$range"); do
+            git log -1 --format=%B "$sha" > /tmp/msg
+            if ! scripts/hooks/commit-msg /tmp/msg; then
+              echo "  ^ in commit $sha" >&2
+              fail=1
+            fi
+          done
+          exit $fail
+
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      # --locked, not a bare sync: uv.lock is tracked, and CI must fail if it
+      # has drifted from pyproject.toml rather than quietly resolving something
+      # else. That is the whole point of committing the lock.
+      - name: Sync dependencies
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          uv sync --all-extras --locked
+
+      # The unit tier is the whole point of splitting the suite: it needs no GPU,
+      # so it runs here. `make qa` covers lint, format, types and the unit tests.
+      - name: Lint, types and unit tests
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          make qa
+
+      # Proves the hardware tier skips rather than fails on a machine with no
+      # card - the rule the suite is built on, and one that only a card-less
+      # machine can actually verify. This runner is that machine.
+      - name: Hardware tier must skip cleanly
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          output=$(PYTHONPATH=src uv run pytest tests/hardware -m hardware -q 2>&1 | tail -3)
+          echo "$output"
+          if ! echo "$output" | grep -qE '[0-9]+ skipped'; then
+            echo "hardware tier did not skip on a card-less runner" >&2
+            exit 1
+          fi
+          if echo "$output" | grep -qE '[0-9]+ (failed|error)'; then
+            echo "hardware tier ran instead of skipping" >&2
+            exit 1
+          fi
+
+  build-module:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # Compiles the driver against real kernel headers. It cannot load or test
+      # it - there is no Astral card here - but a build break is caught.
+      #
+      # Not `linux-headers-$(uname -r)`: GitHub's hosted runners run an Azure
+      # kernel whose headers package is frequently absent from the archive, so
+      # that form fails for a reason unrelated to the driver. linux-headers-
+      # generic pulls a real tree that is always installable; KDIR then points
+      # at it rather than at the running kernel, which is fine because nothing
+      # here loads the module anyway.
+      - name: Install kernel headers and toolchain
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y build-essential linux-headers-generic
+          kdir=$(ls -d /lib/modules/*/build 2>/dev/null | head -1)
+          test -n "$kdir" || { echo "no kernel build tree found" >&2; exit 1; }
+          echo "KDIR=$kdir" >> "$GITHUB_ENV"
+          echo "building against $kdir"
+
+      # The driver's pure sources compiled for the host against the shims in
+      # tests/native/linux, run under ASan/UBSan. This is the only gate that
+      # exercises the shipped decoder and the PCI gate rather than just building
+      # them - the unit tier checks the Python mirror, not this code. It also
+      # runs as part of `make qa` in the quality job; kept here too so a C
+      # failure reports against the C job.
+      - name: Native tier
+        run: make test-native
+
+      # The guard's rule engine, built against the real system headers rather
+      # than the native tier's kernel shims. Same reasoning for keeping it in
+      # this job: a C failure should report against the C job.
+      - name: Guard tier
+        run: make test-guard
+
+      - name: Build the module
+        run: make module
+
+      - name: Fail on compiler warnings
+        run: |
+          make module-clean
+          make module 2>&1 | tee /tmp/build.log
+          if grep -E "^.*(warning|error):" /tmp/build.log | grep -v "compiler differs\|pahole"; then
+            echo "driver produced warnings" >&2
+            exit 1
+          fi
