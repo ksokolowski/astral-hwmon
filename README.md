@@ -2,6 +2,9 @@
 
 **Per-pin 12VHPWR monitoring for ASUS ROG Astral cards, as standard Linux hwmon sensors.**
 
+<p align="center"><a href="https://github.com/ksokolowski/astral-hwmon/actions/workflows/ci.yml"><img src="https://github.com/ksokolowski/astral-hwmon/actions/workflows/ci.yml/badge.svg" alt="ci"></a> <a href="https://github.com/ksokolowski/astral-hwmon/releases/latest"><img src="https://img.shields.io/github/v/release/ksokolowski/astral-hwmon" alt="latest release"></a> <a href="LICENSE"><img src="https://img.shields.io/badge/licence-GPL--2.0%20%2F%20MIT-blue" alt="licence"></a> <a href="https://github.com/sponsors/ksokolowski"><img src="https://img.shields.io/badge/Sponsor-%E2%99%A5-ea4aaa?logo=githubsponsors&logoColor=white" alt="sponsor"></a> <a href="https://ko-fi.com/styledconsole"><img src="https://img.shields.io/badge/Ko--fi-support-ff5e5b?logo=ko-fi&logoColor=white" alt="ko-fi"></a></p>
+
+
 Reads the six individual 12VHPWR pin currents and voltages from the card's own ITE IT8915FN
 monitoring chip and publishes them through hwmon, so `sensors` and everything built on
 libsensors — psensor, Waybar, netdata, Prometheus exporters — picks them up with no bespoke
@@ -250,6 +253,26 @@ against the published behaviour above. No code was taken from any of those proje
 
 The idea of monitoring per-pin current as a safety measure was inspired by the Windows tool
 `12vhpwr-guard`; the inspiration is acknowledged, the implementation is not shared.
+
+## Supporting the project
+
+astral-hwmon is a hobby project, free software, and will stay that way. If it is watching your
+connector and you would like to support its development:
+
+| Platform | Link |
+| --- | --- |
+| GitHub Sponsors | [github.com/sponsors/ksokolowski](https://github.com/sponsors/ksokolowski) |
+| Ko-fi | [ko-fi.com/styledconsole](https://ko-fi.com/styledconsole) |
+
+**First funding goal — a second card.** Eight Astral subsystem ids are in the driver's table
+and exactly one has ever been read on Linux; the other seven are listed on the assumption of an
+identical sensor block. That assumption is the project's largest unverified claim, and the only
+way to settle it is to run against another card. A [card report][card-report] costs you nothing
+and helps more than money does — but where a report is not possible, sponsorship is what would
+eventually put a second variant on the bench.
+
+Everything here so far — the card, the load testing, the measurement rig — has been personal
+time and money.
 
 ## Licence
 

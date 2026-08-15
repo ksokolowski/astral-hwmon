@@ -106,6 +106,13 @@ hand in the same commit:
 - `MODULE_VERSION()` in `driver/astral_hwmon.c` (what `modinfo` reports)
 - `version` in `pyproject.toml` (the harness, which is not distributed)
 
+`scripts/check_release_version.sh v1.2.3` asserts a tag agrees with all three, and CI runs it
+on any `v*` tag — so a forgotten bump fails the release instead of shipping a module whose
+`modinfo` contradicts the release name. Run it before tagging.
+
+Add a `CHANGELOG.md` entry in the same commit. `astral-guard --version` needs no bump: the
+Makefile bakes it in from `dkms.conf`.
+
 ## CI
 
 `.github/workflows/ci.yml` runs on push and pull request: the commit-message rules (the same

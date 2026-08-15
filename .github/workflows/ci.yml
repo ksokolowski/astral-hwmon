@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
 
 jobs:
@@ -41,6 +42,17 @@ jobs:
             fi
           done
           exit $fail
+
+  # Only on a tag: the version lives in four places by hand, so a forgotten
+  # bump must fail the release rather than ship a module whose modinfo
+  # contradicts the tag.
+  release-version:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Tag must match every version string
+        run: scripts/check_release_version.sh "${GITHUB_REF_NAME}"
 
   quality:
     runs-on: ubuntu-latest
