@@ -2,7 +2,7 @@
 
 **Per-pin 12VHPWR monitoring for ASUS ROG Astral cards, as standard Linux hwmon sensors.**
 
-<p align="center"><a href="https://github.com/ksokolowski/astral-hwmon/actions/workflows/ci.yml"><img src="https://github.com/ksokolowski/astral-hwmon/actions/workflows/ci.yml/badge.svg" alt="ci"></a> <a href="https://github.com/ksokolowski/astral-hwmon/releases/latest"><img src="https://img.shields.io/github/v/release/ksokolowski/astral-hwmon" alt="latest release"></a> <a href="LICENSE"><img src="https://img.shields.io/badge/licence-GPL--2.0%20%2F%20MIT-blue" alt="licence"></a> <a href="https://github.com/sponsors/ksokolowski"><img src="https://img.shields.io/badge/Sponsor-%E2%99%A5-ea4aaa?logo=githubsponsors&logoColor=white" alt="sponsor"></a> <a href="https://ko-fi.com/styledconsole"><img src="https://img.shields.io/badge/Ko--fi-support-ff5e5b?logo=ko-fi&logoColor=white" alt="ko-fi"></a></p>
+<p align="center"><a href="https://github.com/ksokolowski/astral-hwmon/actions/workflows/ci.yml"><img src="https://github.com/ksokolowski/astral-hwmon/actions/workflows/ci.yml/badge.svg" alt="ci"></a> <a href="https://github.com/ksokolowski/astral-hwmon/releases/latest"><img src="https://img.shields.io/github/v/release/ksokolowski/astral-hwmon" alt="latest release"></a> <a href="LICENSING.md"><img src="https://img.shields.io/badge/licence-GPL--2.0%20%2F%20MIT-blue" alt="licence"></a> <a href="https://github.com/sponsors/ksokolowski"><img src="https://img.shields.io/badge/Sponsor-%E2%99%A5-ea4aaa?logo=githubsponsors&logoColor=white" alt="sponsor"></a> <a href="https://ko-fi.com/styledconsole"><img src="https://img.shields.io/badge/Ko--fi-support-ff5e5b?logo=ko-fi&logoColor=white" alt="ko-fi"></a></p>
 
 
 Reads the six individual 12VHPWR pin currents and voltages from the card's own ITE IT8915FN
@@ -254,6 +254,33 @@ against the published behaviour above. No code was taken from any of those proje
 The idea of monitoring per-pin current as a safety measure was inspired by the Windows tool
 `12vhpwr-guard`; the inspiration is acknowledged, the implementation is not shared.
 
+## Why it is out of tree
+
+Out of tree is where this driver currently belongs, not somewhere it is parked for lack of
+ambition. hwmon is a welcoming subsystem and a small I2C sensor driver is squarely the kind of
+thing it takes. Two things stand in the way, and neither is fixed by sending a patch.
+
+**It cannot reach the hardware without a proprietary module.** The chip sits on an I2C adapter
+that the NVIDIA driver registers; no `nvidia` module means no adapter, and nothing for the
+driver to bind to. That is why the load sequence waits for adapters rather than probing at
+`module_init`. A mainline driver whose only route to the hardware is an out-of-tree
+proprietary module is a hard sell no matter how clean it is. If a free driver — nouveau, or
+the newer NVIDIA kernel stack — ever registers the same adapters on these cards, this
+objection goes away, and that is the change most likely to make upstreaming realistic.
+
+**The protocol was measured, not documented.** The register layout, scaling and pin order in
+`docs/measurements/` came from reading the author's own card and cross-checking against
+independent public descriptions. It reproduces exactly and it agrees with two separate
+implementations here, but ASUS has published nothing, and "verified on one card" is a thin
+basis for an ABI the kernel would then have to keep. Reports from the other seven subsystem
+ids are what would turn one card's measurements into a family's behaviour — see
+[Unrecognised Astral variant?](#unrecognised-astral-variant) above.
+
+In the meantime the driver is deliberately written as though it were in-tree: standard hwmon
+and I2C interfaces only, no private ABI, no sysfs of its own invention, GPL-2.0-only,
+autoloaded by PCI modalias. Nothing here would need redesigning if the two obstacles above
+cleared — which is the point.
+
 ## Supporting the project
 
 astral-hwmon is a hobby project, free software, and will stay that way. If it is watching your
@@ -277,11 +304,13 @@ time and money.
 ## Licence
 
 Licensed by component, because one component has no choice and the others do. Full reasoning
-in [LICENSE](LICENSE); every file carries an authoritative `SPDX-License-Identifier`.
+in [LICENSING.md](LICENSING.md); every file carries an authoritative `SPDX-License-Identifier`.
 
 | | licence | why |
 |---|---|---|
 | `driver/`, `tests/native/` | **GPL-2.0-only** | The module binds ten `EXPORT_SYMBOL_GPL` symbols, so a licence the kernel does not recognise as free software would refuse to load. It is useful only inside Linux, where the GPL governs anyway. |
 | `guard/`, `src/`, `tests/unit`, `tests/hardware`, `tools/`, `docs/` | **MIT** | `astral-guard` includes no kernel header and reads sysfs the way `cat` does. Nothing ties it to the kernel's licence, and the protocol it consumes came from measurement and public sources. |
 
-Copyright © 2026 Krzysztof Sokołowski. Both texts are in [`LICENSES/`](LICENSES).
+Copyright © 2026 Krzysztof Sokołowski. Both texts are in [`LICENSES/`](LICENSES); the root
+[`LICENSE`](LICENSE) is the GPL-2.0 text, since a detector that reads one file should read the
+stricter one.

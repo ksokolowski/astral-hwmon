@@ -70,7 +70,7 @@ Licensed by component. `driver/` and `tests/native/` are **GPL-2.0-only** with
 kernel does not recognise as free software would refuse to load, and once GPL compatibility is
 compulsory a permissive grant only permits the work to be taken somewhere it need not be given
 back. Everything else is **MIT** — `astral-guard` includes no kernel header and reads sysfs the
-way `cat` does. Full reasoning in `LICENSE`.
+way `cat` does. Full reasoning in `LICENSING.md`.
 
 ## Earlier, unpublished
 
