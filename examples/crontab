@@ -5,9 +5,12 @@
 #
 # Install with: crontab -e
 
-*/5 * * * * /usr/bin/astral-guard --quiet
+# Path note: `make install-guard` uses PREFIX=/usr/local, so the binary lands
+# in /usr/local/bin. A distro package would put it in /usr/bin - adjust to
+# match wherever yours actually is.
+*/5 * * * * /usr/local/bin/astral-guard --quiet
 
 # A longer sample window costs a few more seconds and makes a transient even
 # less likely to be reported:
 #
-# */5 * * * * /usr/bin/astral-guard --quiet --samples 10
+# */5 * * * * /usr/local/bin/astral-guard --quiet --samples 10

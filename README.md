@@ -33,8 +33,9 @@ Sustained current above ~9.5 A on a single 12VHPWR pin is the documented failure
 connector melting. The driver shows you that number.
 
 `astral-guard`, below, is the part that judges it. It still does not *protect*: it reports,
-and it is your monitoring system or your own judgement that acts. Nothing here throttles the
-card or shuts the machine down.
+and it is your monitoring system or your own judgement that acts. Neither the driver nor the
+guard ever throttles the card or shuts the machine down. `examples/` carries one unit that
+will — off by default, yours to arm.
 
 ## Supported hardware
 
@@ -53,8 +54,8 @@ including non-Astral RTX 5080/5090 cards.
 | `1043:8A45` | ROG Astral RTX 5080 OC Hatsune Miku | inherited |
 
 "Inherited" means the id is a published Astral SKU listed on the assumption that the sensor
-block is identical across the family. Only the RTX 5090 OC has actually been read on Linux
-here — **a report from any of the other seven is the single most useful contribution to this
+block is identical across the family. The RTX 5090 OC and the RTX 5090 LC have been read on Linux
+here — **a report from any of the other six is the single most useful contribution to this
 project**, and there is a [card report issue template][card-report] for it. Reports that it
 does *not* work are just as welcome.
 
@@ -201,13 +202,20 @@ monitoring-plugin code:
 A finding is reported only if it holds in **every** sample of the run, so a single odd frame
 raises nothing. `--json` emits a machine-readable report carrying the thresholds the verdict
 was reached with. It needs no privileges — every attribute it reads is world-readable — and
-it makes no init-system assumption; `examples/` has systemd, cron and Icinga snippets, none
-of which is installed for you.
+it makes no init-system assumption; `examples/` has systemd, cron and Icinga snippets, plus
+an opt-in unit that powers the machine off on CRITICAL. None of them is installed for you.
 
-It reports; it does not mitigate. Nothing here throttles the card or powers anything off.
-And it measures *current*, while the hazard is contact heating: a green verdict is not a
-temperature claim. Only one card model has been verified against real hardware — the
-reference machine's — so on any other Astral variant the rules are reasoned, not observed.
+The program reports; it does not mitigate. It never throttles the card and never powers
+anything off. What it can do is exit 2, and `examples/astral-guard-poweroff.service` turns
+that into a poweroff after a warning and a cancellable grace period — off by default, and it
+takes two deliberate edits to arm. Read it before you do. The warning goes to every terminal
+via `wall`, and `examples/astral-guard-notify.sh` adds a desktop notification for the case
+that matters most: somebody full-screen in a game with no terminal open.
+
+It also measures *current*, while the hazard is contact heating: a green verdict is not a
+temperature claim. Two card models have been read on real hardware — the reference machine's
+RTX 5090 OC and a user-reported RTX 5090 LC — so on any other Astral variant the rules are
+reasoned, not observed.
 
 `man 1 astral-guard` documents each rule and where its number came from.
 [`guard/README.md`](guard/README.md) covers the tests, including what they deliberately do

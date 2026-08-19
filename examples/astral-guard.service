@@ -8,12 +8,33 @@
 Description=Check the 12VHPWR connector
 Documentation=man:astral-guard(1)
 
+# Optional: power off automatically on a CRITICAL verdict. Off by default, and
+# deliberately two edits rather than one - read
+# examples/astral-guard-poweroff.service first, because it can take the machine
+# down while somebody is using it. Uncomment this line and SuccessExitStatus=
+# below; neither works without the other.
+#
+# OnFailure=astral-guard-poweroff.service
+
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/astral-guard --quiet
+# `make install-guard` uses PREFIX=/usr/local, so the binary lands in
+# /usr/local/bin. A distro package would use /usr/bin - match your own.
+ExecStart=/usr/local/bin/astral-guard --quiet
 # No User= is needed: every attribute astral-guard reads is world-readable and
 # opened read-only. Running it as root buys nothing.
 DynamicUser=yes
 ProtectSystem=strict
 ProtectHome=yes
 PrivateNetwork=yes
+
+# The other half of the opt-in above, and the load-bearing line rather than
+# boilerplate. Without it any non-zero exit trips OnFailure=, and that includes
+# 3 (UNKNOWN), which is what you get when the driver is not loaded or a channel
+# could not be read. Losing sight of the sensor is a fault worth reporting, but
+# it is not a reason to power off a working machine. Listing 1 and 3 as success
+# leaves 2 - CRITICAL - as the only exit that triggers the action. The cost is
+# that `systemctl status` shows a WARNING run as successful; the journal still
+# carries the verdict.
+#
+# SuccessExitStatus=1 3

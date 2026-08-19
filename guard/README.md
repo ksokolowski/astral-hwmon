@@ -11,7 +11,8 @@ It is a one-shot C11 program with no dependency beyond POSIX.1-2008. It reads
 `/sys/class/hwmon`, applies the rules below to a short burst of samples, prints a verdict and
 exits with a monitoring-plugin code: **0** OK, **1** WARNING, **2** CRITICAL, **3** UNKNOWN.
 It needs no privileges and knows nothing about any init system — `examples/` holds systemd,
-cron and Icinga snippets, none of which is installed.
+cron and Icinga snippets, plus an opt-in unit that powers the machine off on CRITICAL. None
+of them is installed.
 
 ```
 make guard          # build guard/astral-guard
@@ -76,6 +77,14 @@ repo agree with a bug that real hardware rejected.
   (NOTE > WARN > CRIT) and that gating exists at all.
 - **Whether the connector is actually safe.** We measure current; the hazard is contact
   heating. A green verdict is not a temperature claim.
+- **The `examples/` snippets.** Nothing in the suite parses or runs them. The one that acts,
+  `astral-guard-poweroff.service`, was checked by hand instead: `systemd-analyze verify` on
+  the shipped files, then the real units driven against a fake sysfs tree, confirming the
+  poweroff fires on exit 2 and not on 0, 1, 3, or 203 — the exec failure you get when the
+  binary is not where the unit says it is, which without its interlock would power the
+  machine off on a healthy connector. The desktop notification was confirmed to reach a
+  GNOME/Wayland session from a root system unit, and a notifier that is missing or broken was
+  confirmed not to stop the poweroff.
 - **Post-resume behaviour, beyond S3 on one machine.** The corpus proves the *logic* rejects a
   transient. What this card reports on wake was measured separately on 2026-08-15
   (`docs/measurements/2026-08-15/`) — no false over-current, `-EIO` rather than a decodable

@@ -1,0 +1,80 @@
+# Example only. Not installed, not enabled. THIS ONE POWERS OFF YOUR MACHINE.
+#
+# astral-guard reports and never acts. This unit is the acting half, kept
+# separate and unwired precisely so that turning it on is a decision somebody
+# made on purpose rather than a default they inherited.
+#
+# Started by OnFailure= from astral-guard.service, so it runs only when a run
+# came back CRITICAL: a pin at or above 9.5 A, a pin that has stopped
+# conducting while the connector is loaded, or a min/max imbalance under 60%.
+# A finding has to hold in every sample of the run before the guard reports it
+# at all, so a single odd frame cannot get you here.
+#
+# To use it:
+#   1. cp astral-guard-poweroff.service /etc/systemd/system/
+#   2. uncomment OnFailure= and SuccessExitStatus= in astral-guard.service
+#   3. systemctl daemon-reload
+#   optional: install astral-guard-notify.sh and uncomment its ExecStartPre=
+#             below, to warn desktop users as well as terminals
+#
+# WHO SEES THE WARNING. wall(1) writes to every tty and pty, so any open
+# terminal - including a terminal window inside a desktop session - gets it.
+# A user who is full-screen in a browser or a game sees nothing, and 60
+# seconds later the machine goes down. That is the honest trade: this exists
+# for the case where nobody is watching, which is the same case where nobody
+# reads the warning. Decide whether that suits your machine before enabling
+# it. A desktop notification is not a substitute - notify-send needs the
+# user's session bus and does not work as written from a system unit.
+#
+# CANCELLING. The warning names the command, and stopping the unit during the
+# sleep aborts the poweroff:
+#   systemctl stop astral-guard-poweroff.service
+# That leaves this unit in `failed` state, which looks alarming and is
+# harmless: the next CRITICAL starts it again regardless. Measured, not
+# assumed.
+#
+# ONLY ONE UNIT MAY POINT OnFailure= AT THIS ONE. With two, systemd reports
+# "multiple trigger source candidates for exit status propagation" and leaves
+# MONITOR_EXIT_STATUS unset, which the interlock below reads as "not a
+# CRITICAL" and refuses to act on. It fails towards staying powered on.
+
+[Unit]
+Description=Power off after a CRITICAL 12VHPWR verdict
+Documentation=man:astral-guard(1)
+
+[Service]
+Type=oneshot
+
+# The interlock, and the reason this unit is not simply wall+sleep+poweroff.
+# OnFailure= fires on ANY failure of the check unit, not only on a CRITICAL
+# verdict - a guard binary that is not where the unit says it is exits 203,
+# which would otherwise power the machine off every timer tick with a
+# perfectly healthy connector. systemd sets MONITOR_EXIT_STATUS for units it
+# activates via OnFailure=, so requiring it to be exactly 2 lets CRITICAL
+# through and rejects 203 and every other failure mode. Verified against
+# exits 0, 1, 2, 3 and 203.
+#
+# It also means starting this unit by hand does nothing: run by hand there is
+# no MONITOR_EXIT_STATUS, so the test fails and the poweroff is skipped.
+ExecStartPre=/bin/sh -c 'test "$MONITOR_EXIT_STATUS" = 2'
+
+# Optional: put the warning in front of a desktop user too. wall(1) reaches
+# every tty and pty, which means every open terminal - but not somebody who is
+# full-screen in a game with no terminal open. Install
+# astral-guard-notify.sh as below and uncomment this line.
+#
+# The leading '-' is required, not decoration: it tells systemd to ignore a
+# failure here. A machine with no notify-send, or nobody logged in
+# graphically, must still power itself off.
+#
+# The 60 must match the sleep below; it is what the notification tells the
+# user they have left.
+#
+# ExecStartPre=-/usr/local/bin/astral-guard-notify 60
+
+# Raise or lower 60 to taste; it is the whole safety margin against acting on
+# a verdict you disagree with. Absolute paths because systemd does not search
+# $PATH, and they can differ by distro.
+ExecStartPre=/usr/bin/wall "astral-guard: CRITICAL 12VHPWR verdict on this machine. Powering off in 60 seconds to protect the connector. Cancel with: systemctl stop astral-guard-poweroff.service"
+ExecStartPre=/usr/bin/sleep 60
+ExecStart=/usr/bin/systemctl poweroff
