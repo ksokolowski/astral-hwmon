@@ -46,7 +46,7 @@ including non-Astral RTX 5080/5090 cards.
 | `1043:89E3` | ROG Astral RTX 5090 OC | yes |
 | `1043:89EA` | ROG Astral RTX 5090D OC | inherited |
 | `1043:8A61` | ROG Astral RTX 5090 Matrix | inherited |
-| `1043:89EC` | ROG Astral RTX 5090 LC | inherited |
+| `1043:89EC` | ROG Astral RTX 5090 LC | yes |
 | `1043:89DE` | ROG Astral RTX 5080 OC | inherited |
 | `1043:8A2E` | ROG Astral RTX 5090 OC White | inherited |
 | `1043:8A2B` | ROG Astral RTX 5080 OC White | inherited |
