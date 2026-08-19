@@ -683,4 +683,4 @@ module_exit(astral_exit);
 MODULE_AUTHOR("Krzysztof Sokołowski");
 MODULE_DESCRIPTION("Per-pin 12VHPWR monitoring for ASUS ROG Astral cards");
 MODULE_LICENSE("GPL v2");
-MODULE_VERSION("0.2.1");
+MODULE_VERSION("0.3.0");

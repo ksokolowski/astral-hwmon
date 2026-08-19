@@ -203,7 +203,8 @@ A finding is reported only if it holds in **every** sample of the run, so a sing
 raises nothing. `--json` emits a machine-readable report carrying the thresholds the verdict
 was reached with. It needs no privileges — every attribute it reads is world-readable — and
 it makes no init-system assumption; `examples/` has systemd, cron and Icinga snippets, plus
-an opt-in unit that powers the machine off on CRITICAL. None of them is installed for you.
+an opt-in unit that powers the machine off on CRITICAL and a desktop notifier to go with it.
+None of them is installed for you.
 
 The program reports; it does not mitigate. It never throttles the card and never powers
 anything off. What it can do is exit 2, and `examples/astral-guard-poweroff.service` turns
@@ -234,12 +235,12 @@ make module      # build the kernel module against the running kernel
 make guard       # build the astral-guard binary
 ```
 
-Three tiers, and only the last needs a card. `make test` checks the Python mirror,
-`make test-native` checks the C the driver actually ships - both against the same
-corpus of frames captured off the card - and `make test-hw` checks them against each
-other on real hardware. See [`tests/native/README.md`](tests/native/README.md).
-The guard has its own tier on the same pattern, driven by
-[`tests/data/guard-cases.jsonl`](tests/data/guard-cases.jsonl).
+Four tiers, and only the last needs a card. `make test` checks the Python mirror,
+`make test-native` checks the C the driver actually ships — both against the same corpus of
+frames captured off the card — `make test-guard` checks the guard's rule engine against
+[`tests/data/guard-cases.jsonl`](tests/data/guard-cases.jsonl), and `make test-hw` checks the
+two implementations against each other on real hardware. See
+[`tests/native/README.md`](tests/native/README.md).
 
 Current state, open questions and already-ruled-out theories are in
 [`docs/STATUS.md`](docs/STATUS.md). The raw reference data every constant is derived from —
@@ -279,9 +280,9 @@ objection goes away, and that is the change most likely to make upstreaming real
 **The protocol was measured, not documented.** The register layout, scaling and pin order in
 `docs/measurements/` came from reading the author's own card and cross-checking against
 independent public descriptions. It reproduces exactly and it agrees with two separate
-implementations here, but ASUS has published nothing, and "verified on one card" is a thin
-basis for an ABI the kernel would then have to keep. Reports from the other seven subsystem
-ids are what would turn one card's measurements into a family's behaviour — see
+implementations here, but ASUS has published nothing, and two cards out of eight is a thin
+basis for an ABI the kernel would then have to keep. Reports from the other six subsystem ids
+are what would turn two cards' measurements into a family's behaviour — see
 [Unrecognised Astral variant?](#unrecognised-astral-variant) above.
 
 In the meantime the driver is deliberately written as though it were in-tree: standard hwmon
@@ -299,12 +300,17 @@ connector and you would like to support its development:
 | GitHub Sponsors | [github.com/sponsors/ksokolowski](https://github.com/sponsors/ksokolowski) |
 | Ko-fi | [ko-fi.com/styledconsole](https://ko-fi.com/styledconsole) |
 
-**First funding goal — a second card.** Eight Astral subsystem ids are in the driver's table
-and exactly one has ever been read on Linux; the other seven are listed on the assumption of an
-identical sensor block. That assumption is the project's largest unverified claim, and the only
-way to settle it is to run against another card. A [card report][card-report] costs you nothing
-and helps more than money does — but where a report is not possible, sponsorship is what would
-eventually put a second variant on the bench.
+**Funding goal — a card on the bench.** Eight Astral subsystem ids are in the driver's table
+and two have now been read on Linux: the reference RTX 5090 OC, and an RTX 5090 LC confirmed
+by an owner report. The other six are listed on the assumption of an identical sensor block,
+which remains the project's largest unverified claim.
+
+A [card report][card-report] is still the cheapest way to shrink that number, costs you
+nothing, and is worth more than money — it is how the LC was confirmed. What a report cannot
+give is a card that stays here: one that can be held under load, have its connector
+deliberately mis-seated, and be measured while it degrades. Every threshold in `astral-guard`
+is reasoned from public sources rather than observed on a failing connector, and only a card
+on the bench changes that.
 
 Everything here so far — the card, the load testing, the measurement rig — has been personal
 time and money.

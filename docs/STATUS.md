@@ -1,4 +1,4 @@
-# Status — 2026-08-16
+# Status — 2026-08-19
 
 Where the project stands, what is verified, what is open, and
 which theories have already been ruled out so nobody re-investigates them.
@@ -6,13 +6,19 @@ which theories have already been ruled out so nobody re-investigates them.
 ## Working
 
 Built, DKMS-installed, and **attaching automatically at boot** on the reference machine
-(Ubuntu 26.04, kernel 7.0.0-29, ROG Astral RTX 5090 OC `0x89E31043`, chip on `i2c-4` at
+(Ubuntu 26.04, kernel 7.0.0-30, ROG Astral RTX 5090 OC `0x89E31043`, chip on `i2c-4` at
 `0x2b`). Twelve read-only hwmon channels plus `update_interval`, visible to `sensors` and
 anything on libsensors.
 
 - 47 unit tests, 18 hardware tests, 20 native tests, 18 guard tests, `make qa` green.
 - **`astral-guard` is built** — the userspace judgement layer, one-shot C11, monitoring-plugin
   exit codes, verified reporting OK on the reference card. Scope below.
+- **Opt-in protection exists, off by default.** `examples/astral-guard-poweroff.service`
+  turns a CRITICAL verdict into a warned, cancellable poweroff, with a desktop notifier
+  alongside it. Nothing installs or arms it. Verified by driving the real units against a
+  fake sysfs tree: it fires on exit 2 and not on 0, 1, 3 or 203, and a missing notifier does
+  not block the poweroff. This is the first thing in the repository that acts rather than
+  reports; the driver and the guard themselves are unchanged.
 - Autoload by PCI modalias — udev loads the module only on machines with a supported card.
 - Boot cost: none measurable (kernel 6.807 s, userspace 31.094 s, against 6.803 / 31.464
   before the module existed).
@@ -97,8 +103,9 @@ What was deliberately left out, and why:
 - **No staleness check.** The guard does not verify the driver's readings are fresh. A wedged
   sensor path would read as steady rather than absent. Deferred deliberately, not forgotten.
 - **Thresholds are reasoned from public sources, not tuned against a fleet.** ASUS Power
-  Detector+ and Thermal Grizzly's WireView Pro II supply the numbers; only one card has ever
-  been measured against them.
+  Detector+ and Thermal Grizzly's WireView Pro II supply the numbers, and no connector here
+  has ever been measured while actually degrading. A second card being confirmed does not
+  change this: it widens the evidence for the *protocol*, not for the thresholds.
 
 The old blocking gap — every threshold sitting above anything ever measured — is **closed**:
 the 581 W burn reached 8.56 A on the busiest pin and the projected fingerprint held to 0.23 pp.
@@ -128,10 +135,12 @@ watch on the first run: the commit-range fallback for an all-zero `github.event.
 the kernel-headers step, which now installs `linux-headers-generic` and points `KDIR` at it
 rather than asking for the runner's own Azure kernel headers, which are often absent.
 
-**Only one card is Linux-verified.** `0x89E31043`. The other seven ids are published Astral
-SKUs listed on the assumption of an identical sensor block; each wants an owner report. There
-is now a `card-report` issue template and a README pointer to it, which is the whole mechanism
-for closing this — it cannot be closed from this machine.
+**Two cards are Linux-verified.** `0x89E31043` on the reference machine, and `0x89EC1043`
+(ROG Astral RTX 5090 LC) confirmed by an owner report in issue #1 — the first evidence that
+the sensor block really is shared across the family rather than assumed to be. The other six
+ids are still published Astral SKUs listed on that assumption; each wants an owner report.
+The `card-report` issue template is the whole mechanism for closing this — it cannot be
+closed from this machine, and issue #1 is proof the mechanism works.
 
 ## Ruled out — do not re-investigate
 
@@ -165,9 +174,9 @@ Kept because each is a trap that could be reintroduced:
 
 ## Suggested next steps
 
-1. Push to the public GitHub repository and watch the first CI run — the workflow has never
-   executed on a runner. That unblocks the owner reports, which are the only way to close the
-   seven unverified ids.
+1. Decide what evidence promotes an id from "inherited" to "yes" in the README table. Issue
+   #1 was accepted on a user's `sensors` output; a decode that agrees with the oracle is a
+   higher bar. Worth settling deliberately rather than per-issue, now that reports arrive.
 2. Settle `0x98` and `0xa0` from Windows — five minutes, unblocks a seventh and eighth channel.
 3. Exercise `rmmod nvidia` / `modprobe nvidia` from a console-only boot. It is the only route
    left to `BUS_NOTIFY_DEL_DEVICE` and the re-attach path now that suspend/resume is known not
@@ -175,4 +184,5 @@ Kept because each is a trap that could be reintroduced:
 4. Test the response side: how fast `nvidia-smi -lgc` / `-pl` actually caps, and whether it
    restores exactly. It is the last unmeasured half of `docs/GUARD-DESIGN.md`, and the
    prerequisite for `astral-guard` ever growing a mitigation mode.
-5. Collect owner reports for the seven unverified ids, via the `card-report` issue template.
+5. Collect owner reports for the six remaining unverified ids, via the `card-report` issue
+   template.

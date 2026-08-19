@@ -4,6 +4,53 @@ Notable changes per release. The version lives in `dkms.conf` and is mirrored by
 `MODULE_VERSION()` and `pyproject.toml`; `astral-guard` takes its `--version` string from
 `dkms.conf` via the Makefile, so it cannot drift.
 
+## 0.3.0 — 2026-08-19
+
+Adds the first thing in this repository that *acts* on a reading. No logic changed in either
+program: the only difference in `driver/` and `guard/` is the version string they report.
+What is new lives entirely in `examples/`, installs nothing, and is off until somebody arms it
+deliberately.
+
+### Opt-in protection
+
+- `examples/astral-guard-poweroff.service` turns a CRITICAL verdict into a poweroff, after a
+  broadcast warning and a 60-second grace period that `systemctl stop` cancels. Arming it
+  takes two edits in `astral-guard.service`, and reading the file first is the point of
+  splitting it that way.
+- The unit refuses to act unless `MONITOR_EXIT_STATUS` is exactly 2. `OnFailure=` fires on any
+  failure of the check unit, not only on a CRITICAL verdict — a guard binary that is not where
+  the unit says it is exits 203, which without the interlock would power the machine off every
+  timer tick with a perfectly healthy connector. With no trigger metadata at all it declines to
+  act, so it fails towards staying powered on.
+- `examples/astral-guard-notify.sh` puts the warning in front of a desktop user, for the case
+  `wall(1)` cannot reach: somebody full-screen in a game with no terminal open. It speaks
+  `org.freedesktop.Notifications`, so GNOME, KDE Plasma, XFCE, Cinnamon, MATE and Budgie all
+  show it on Wayland and X11 alike. It is called with a leading `-`, so a machine without
+  `notify-send` still protects itself.
+- Verified by driving the real units against a fake sysfs tree: the poweroff fires on exit 2
+  and not on 0, 1, 3 or 203, re-arms after a cancellation, and a cancelled grace period never
+  reaches the action.
+
+**This is not a substitute for judgement.** Every threshold behind a CRITICAL verdict is
+reasoned from ASUS and Thermal Grizzly's published numbers, not observed on a connector that
+was actually failing. Arming an automatic poweroff means accepting those numbers on a machine
+whose card may be one of the six variants nobody has ever read.
+
+### Fixed
+
+- All `examples/` referenced `/usr/bin/astral-guard`, while `make install-guard` uses
+  `PREFIX=/usr/local` and installs to `/usr/local/bin`. Following the README produced examples
+  that could not run — and, once a poweroff unit existed, that failure mode was the 203 above.
+- Documentation that had drifted from the code: the test suite described as three tiers rather
+  than four, and several counts left over from the days when one card had been read on Linux
+  rather than two.
+
+### Hardware
+
+- `1043:89EC` (ROG Astral RTX 5090 LC) is Linux-verified, confirmed by an owner report in
+  issue #1 — the first evidence that the sensor block is shared across the family rather than
+  assumed to be. Six of the eight ids remain unverified.
+
 ## 0.2.1 — 2026-08-16
 
 First public release. Earlier versions ran on the author's own machine and were never
@@ -45,6 +92,7 @@ emits a report carrying the thresholds the verdict was reached with.
   one publicly documented real Astral imbalance reaches a human without paging anyone.
 - `make install-guard`, honouring `DESTDIR` and `PREFIX`. Nothing is written to `/etc` and
   nothing is enabled; `examples/` holds systemd, cron and Icinga snippets as documentation.
+  Nothing in this release acts on a verdict — see 0.3.0.
 - `astral-guard(1)` documents each rule, the exit codes and the limitations.
 
 ### Tests

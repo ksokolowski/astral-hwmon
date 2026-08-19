@@ -2,7 +2,7 @@
 # no packaging. Python exists to orchestrate and verify the kernel driver.
 [project]
 name = "astral-oracle"
-version = "0.2.1"
+version = "0.3.0"
 description = "Userspace oracle and hardware test harness for the astral-hwmon driver"
 # MIT, like everything outside driver/ and tests/native/ - see LICENSING.md. The
 # kernel module is GPL-2.0-only; this harness never links against it.
