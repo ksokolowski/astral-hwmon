@@ -12,6 +12,7 @@ jobs:
   # This job is the enforcement that actually travels.
   commit-rules:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
         with:
@@ -49,6 +50,7 @@ jobs:
   release-version:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
       - name: Tag must match every version string
@@ -56,6 +58,7 @@ jobs:
 
   quality:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
 
@@ -96,6 +99,7 @@ jobs:
 
   build-module:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
 
@@ -108,11 +112,25 @@ jobs:
       # generic pulls a real tree that is always installable; KDIR then points
       # at it rather than at the running kernel, which is fine because nothing
       # here loads the module anyway.
+      #
+      # apt is given explicit transfer timeouts and its own step cap. On
+      # 2026-08-19 azure.archive.ubuntu.com refused every index, apt fell back
+      # to archive.ubuntu.com, and that connection hung with no timeout of its
+      # own: the step sat silent for six hours until the runner limit killed
+      # it, and the branch showed a red CI badge for an outage that had
+      # nothing to do with the driver. A mirror stall must fail in minutes and
+      # be obviously infrastructural, so it can simply be re-run.
       - name: Install kernel headers and toolchain
+        timeout-minutes: 8
+        env:
+          APT_OPTS: >-
+            -o Acquire::Retries=3
+            -o Acquire::http::Timeout=20
+            -o Acquire::https::Timeout=20
         run: |
           set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y build-essential linux-headers-generic
+          sudo apt-get $APT_OPTS update
+          sudo apt-get $APT_OPTS install -y build-essential linux-headers-generic
           kdir=$(ls -d /lib/modules/*/build 2>/dev/null | head -1)
           test -n "$kdir" || { echo "no kernel build tree found" >&2; exit 1; }
           echo "KDIR=$kdir" >> "$GITHUB_ENV"
@@ -138,9 +156,20 @@ jobs:
 
       - name: Fail on compiler warnings
         run: |
+          set -euo pipefail
           make module-clean
           make module 2>&1 | tee /tmp/build.log
-          if grep -E "^.*(warning|error):" /tmp/build.log | grep -v "compiler differs\|pahole"; then
+          # Keyed to the shape gcc emits - file.c:LINE:COL: severity: - so it
+          # needs no exclusion list. kbuild prints two benign bare "warning:"
+          # prose lines ("the compiler differs...", "pahole version...")
+          # which the previous pattern matched and had to be told to ignore;
+          # they carry no file:line:col prefix and cannot match this one.
+          # Validated against both on a real build before shipping.
+          #
+          # The grep is not the failure backstop: pipefail makes a nonzero
+          # make status fail this step directly, including link-stage errors
+          # whose text ("collect2: error:") carries no file prefix.
+          if grep -E '\.(c|h):[0-9]+:[0-9]+: (warning|error):' /tmp/build.log; then
             echo "driver produced warnings" >&2
             exit 1
           fi

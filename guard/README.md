@@ -60,6 +60,11 @@ the fault developed.
   which R2 would then report as a dead contact. Same reasoning as the driver's plausibility
   gate: losing sight of a pin must not look like a healthy reading of it.
 - The tree vanishing between discovery and read — the `rmmod nvidia` case — without crashing.
+- That a reading the driver could not have published fails the sample rather than being
+  believed: trailing junk (`8000abc`), a value wider than `int` (`4294975296`, which is
+  2^32 + 8000 and used to narrow silently to a healthy 8000), a negative current, and either
+  end of the driver's own plausibility window. The bounds are duplicated from
+  `driver/astral.h`, and the native tier asserts the two copies still agree.
 
 `tests/unit/test_guard_cli.py` covers the process boundary the C tier cannot: it runs the
 built binary with `--sysfs-root` against a `pytest` tmp tree and checks the exit code the
@@ -74,7 +79,18 @@ repo agree with a bug that real hardware rejected.
 
 - **The threshold values.** Tests use them symbolically, exactly as the native tier treats
   `ASTRAL_MV_MIN`. Tuning WARN must not fail the suite. What *is* pinned is the ordering
-  (NOTE > WARN > CRIT) and that gating exists at all.
+  (NOTE > WARN > CRIT), that gating exists at all, and that no numeric option can be given a
+  value outside its documented range — a threshold of 0 can never fire, so accepting one would
+  disarm a rule while the run still exits OK.
+- **That a full findings array cannot lose a verdict.** `add()` raises the level before the
+  capacity check, so truncation costs detail and never the severity. The rules can produce at
+  most fourteen findings against a `GUARD_MAX_FINDINGS` of sixteen, so no test can reach the
+  truncation without editing the header — the ordering is insurance against a future rule,
+  not behaviour the tier observes.
+- **Whether `--note-ratio` sits above `--warn-ratio`.** Setting NOTE below WARN makes the
+  advisory tier unreachable, since WARN is tested first. Both values are echoed in `--json`
+  and printed by `--help`, so the choice is visible rather than silent, and refusing operator
+  combinations is a policy this tool does not otherwise take on.
 - **Whether the connector is actually safe.** We measure current; the hazard is contact
   heating. A green verdict is not a temperature claim.
 - **The `examples/` snippets.** Nothing in the suite parses or runs them. The one that acts,
@@ -104,11 +120,23 @@ Each of these was introduced and confirmed to break the run:
 - read `curr%d_input` with `pin` instead of `pin + 1`
 - return OK instead of UNKNOWN when no chip is found — caught by the Python CLI tier
 - drift `GUARD_CHIP_NAME` from the driver's `ASTRAL_CHIP_NAME` — caught by the native tier
+- parse `--warn-ratio` with `atoi()` again, so a non-numeric or zero value becomes a threshold
+  that can never fire — six checks fail in the Python CLI tier
+- drop a field from the `--json` `limits` object — caught in both the C and the Python tier
+- drop the trailing-junk check in `read_int_attr`, so `curr1_input` of `8000abc` reads as
+  8000 mA and the run exits OK
+- widen that reader's ceiling, so a value past the driver's plausibility window is believed —
+  fails in both the pin and the `update_interval` cases
 
 One trap worth recording, because the native tier's README records its twin. *Deleting* the
 open-pin gate rather than zeroing it does not fail a test: it makes `total_ma()` unused and
 the build fails on `-Werror`. A mutation that breaks the build proves nothing about the
 tests. Mutate the value, not the code that uses it.
+
+The same trap catches the reader's bounds: removing the range check outright leaves `lo` and
+`hi` unused and `-Werror=unused-parameter` fails the build. That is a real safety net — the
+bounds cannot be quietly deleted — but it is not a test result, so the two mutations listed
+above weaken the check instead of removing it.
 
 ## Layout
 

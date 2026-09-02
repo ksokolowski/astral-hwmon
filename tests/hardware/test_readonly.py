@@ -3,7 +3,8 @@
 
 import pytest
 
-from astral_oracle.hwmon import find_hwmon_dir, load_module, sensor_attributes
+from astral_oracle.hwmon import find_hwmon_dir, sensor_attributes
+from astral_oracle.modctl import load_module
 
 pytestmark = pytest.mark.hardware
 

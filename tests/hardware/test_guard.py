@@ -15,7 +15,7 @@ from typing import Any
 
 import pytest
 
-from astral_oracle.hwmon import load_module
+from astral_oracle.modctl import load_module
 
 pytestmark = pytest.mark.hardware
 

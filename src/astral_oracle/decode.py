@@ -48,7 +48,14 @@ def _u16_be(raw: bytes, offset: int) -> int:
 
 
 def decode_frame(raw: bytes) -> list[PinReading]:
-    """Decode one register block into six readings, pin 1 first."""
+    """Decode one register block into six readings, pin 1 first.
+
+    Validates inline and raises naming the offending pin, because the caller is
+    a human diagnosing which pin is wrong. astral_decode_frame() in the driver
+    decodes first and validates the whole frame afterwards, in
+    astral_frame_plausible(), because its caller needs one verdict for all
+    twelve channels. The asymmetry is deliberate - do not "align" them.
+    """
     if len(raw) < BLOCK_LEN:
         raise FrameError(f"frame is {len(raw)} bytes, need at least {BLOCK_LEN}")
 

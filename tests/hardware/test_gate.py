@@ -13,7 +13,8 @@ import subprocess
 import pytest
 
 from astral_oracle.discover import find_chipless_nvidia_adapter, find_foreign_adapter
-from astral_oracle.hwmon import MODULE_NAME, find_hwmon_dir, module_resident, unload_module
+from astral_oracle.hwmon import find_hwmon_dir
+from astral_oracle.modctl import MODULE_NAME, module_resident, unload_module
 
 pytestmark = pytest.mark.hardware
 

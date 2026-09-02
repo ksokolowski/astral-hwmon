@@ -56,13 +56,18 @@ void guard_report_json(FILE *out, const struct guard_chip *c,
 	fprintf(out, "%s],\n", v->n ? "\n    " : "");
 
 	/* The thresholds travel with the verdict, so a stored report can be
-	 * re-read later without guessing which limits produced it.
+	 * re-read later without guessing which limits produced it. Every field
+	 * of struct guard_limits is emitted, the two gates included: a report
+	 * showing no imbalance finding means nothing unless the reader can see
+	 * whether the run ever cleared ratio_gate_ma.
 	 */
 	fprintf(out, "    \"limits\": {\"pin_warn_ma\": %d, \"pin_crit_ma\": %d, "
-		"\"open_pin_ma\": %d, \"ratio_note_pct\": %d, "
+		"\"open_pin_ma\": %d, \"open_gate_ma\": %d, "
+		"\"ratio_gate_ma\": %d, \"ratio_note_pct\": %d, "
 		"\"ratio_warn_pct\": %d, \"ratio_crit_pct\": %d, "
 		"\"mv_warn\": %d, \"mv_crit\": %d}\n",
 		lim->pin_warn_ma, lim->pin_crit_ma, lim->open_pin_ma,
+		lim->open_gate_ma, lim->ratio_gate_ma,
 		lim->ratio_note_pct, lim->ratio_warn_pct, lim->ratio_crit_pct,
 		lim->mv_warn, lim->mv_crit);
 	fprintf(out, "  }");

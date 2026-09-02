@@ -96,3 +96,74 @@ def test_quiet_prints_nothing_when_ok(tmp_path: Path) -> None:
     out = _run(tmp_path, "--quiet")
     assert out.returncode == 0
     assert out.stdout == ""
+
+
+def _run_raw(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    """Without the fixed --samples/--interval _run() adds, so args can be tested."""
+    return subprocess.run(
+        [str(GUARD), "--sysfs-root", str(root), *args],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+
+@pytest.mark.parametrize("value", ["abc", "", "70%", "0", "101", "-1"])
+def test_a_bad_ratio_never_silently_disarms_the_rule(tmp_path: Path, value: str) -> None:
+    """The mutation this exists to catch: accepting a threshold that cannot fire.
+
+    R3 tests `lo * 100 < hi * pct`, so pct 0 is false for every reading. Under
+    the old atoi() parse, any non-numeric --warn-ratio became 0 and the
+    imbalance warning was gone with no diagnostic and exit 0. Refusing the
+    argument is the only outcome that cannot be mistaken for a clean run.
+    """
+    _write_chip(tmp_path, 7, "astral12vhpwr", HEALTHY_MV, HEALTHY_MA)
+    out = _run_raw(tmp_path, "--samples", "1", "--warn-ratio", value)
+    assert out.returncode == 3, out.stdout + out.stderr
+    assert "--warn-ratio" in out.stderr
+    assert value in out.stderr or value == ""
+
+
+@pytest.mark.parametrize(
+    ("option", "value"),
+    [
+        ("--samples", "abc"),
+        ("--samples", "0"),
+        ("--samples", "33"),
+        ("--interval", "abc"),
+        ("--interval", "-1"),
+        ("--note-ratio", "abc"),
+    ],
+)
+def test_a_malformed_option_is_unknown_not_a_default(
+    tmp_path: Path, option: str, value: str
+) -> None:
+    _write_chip(tmp_path, 7, "astral12vhpwr", HEALTHY_MV, HEALTHY_MA)
+    out = _run_raw(tmp_path, "--samples", "1", option, value)
+    assert out.returncode == 3, out.stdout + out.stderr
+    assert option in out.stderr
+
+
+def test_the_json_limits_carry_every_threshold_the_verdict_used(tmp_path: Path) -> None:
+    """The man page promises "the thresholds that were applied" - all of them.
+
+    The two gates matter most to a reader: an absent imbalance finding means
+    nothing unless the report shows whether the run ever cleared ratio_gate_ma.
+    """
+    _write_chip(tmp_path, 7, "astral12vhpwr", HEALTHY_MV, HEALTHY_MA)
+    out = _run_raw(tmp_path, "--samples", "1", "--json")
+    assert out.returncode == 0, out.stdout + out.stderr
+
+    limits = json.loads(out.stdout)[0]["limits"]
+    assert set(limits) == {
+        "pin_warn_ma",
+        "pin_crit_ma",
+        "open_pin_ma",
+        "open_gate_ma",
+        "ratio_gate_ma",
+        "ratio_note_pct",
+        "ratio_warn_pct",
+        "ratio_crit_pct",
+        "mv_warn",
+        "mv_crit",
+    }, limits

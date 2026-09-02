@@ -66,6 +66,20 @@ static void test_json_carries_the_applied_thresholds(void)
 		 guard_limits_default.pin_crit_ma);
 	CHECK(strstr(buf, want) != NULL,
 	      "json must carry the applied thresholds, got: %s", buf);
+
+	/* The two load gates were omitted here at first, while the man page
+	 * promised "the thresholds that were applied". They are the ones a
+	 * reader needs most: an absent imbalance finding is meaningless unless
+	 * the report says whether the run ever cleared ratio_gate_ma.
+	 */
+	snprintf(want, sizeof(want), "\"open_gate_ma\": %d",
+		 guard_limits_default.open_gate_ma);
+	CHECK(strstr(buf, want) != NULL,
+	      "json must carry R2's gate, got: %s", buf);
+	snprintf(want, sizeof(want), "\"ratio_gate_ma\": %d",
+		 guard_limits_default.ratio_gate_ma);
+	CHECK(strstr(buf, want) != NULL,
+	      "json must carry R3's gate, got: %s", buf);
 }
 
 /* An advisory must reach the operator's eyes even though it leaves the exit

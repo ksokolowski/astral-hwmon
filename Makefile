@@ -83,7 +83,12 @@ $(GUARD_BIN): $(GUARD_DEPS)
 test-guard: $(GUARD_BIN) ## Guard tier - the shipped rule engine, no hardware
 	./$(GUARD_BIN) tests/data/guard-cases.jsonl
 
-coverage: ## Unit tests with coverage
+# Depends on guard: test_guard_cli.py runs the built binary and skips without
+# it. qa lists the targets in dependency order, but that order only holds
+# without -j - under make -j the prerequisites run unordered, and coverage
+# racing ahead of guard silently dropped the whole CLI tier (verified: 18
+# skips). The edge is what makes it real under both invocations.
+coverage: guard ## Unit tests with coverage
 	PYTHONPATH=$(PYTHONPATH) $(UV) run pytest tests/unit \
 	  --cov=astral_oracle --cov-report=term-missing
 
@@ -126,8 +131,27 @@ MODULE := driver/astral-hwmon.ko
 
 .PHONY: module module-clean module-load module-unload
 
+# kbuild compares "$(CC) --version" against the CONFIG_CC_VERSION_TEXT recorded
+# in the kernel's own .config, as a plain string. On Debian and Ubuntu that
+# string carries the triplet name - x86_64-linux-gnu-gcc - while gcc reports
+# itself as plain gcc, so the default build warns that "the compiler differs"
+# about a compiler that is byte-identical: same Ubuntu package, same version,
+# different argv[0]. Use the name the kernel actually recorded, when a program
+# by that name exists. On a distro whose .config says plain "gcc" this resolves
+# to gcc and changes nothing, and if the recorded compiler is not installed it
+# falls back to the default rather than failing.
+#
+# Lazy (=, not :=) so the two shell-outs happen only when the module is built,
+# not on every make invocation. Skipped entirely when CC was set explicitly:
+# a command-line CC= is the caller's choice and propagates to the sub-make on
+# its own.
+ifeq ($(origin CC),default)
+KERNEL_CC = $(shell sed -n 's/^CONFIG_CC_VERSION_TEXT="\([^ ]*\).*/\1/p' $(KDIR)/.config 2>/dev/null)
+MODULE_CC = $(if $(shell command -v $(KERNEL_CC) 2>/dev/null),CC=$(KERNEL_CC),)
+endif
+
 module: ## Build the kernel module against the running kernel
-	$(MAKE) -C $(KDIR) M=$(CURDIR)/driver modules
+	$(MAKE) -C $(KDIR) M=$(CURDIR)/driver $(MODULE_CC) modules
 
 module-clean: ## Clean kernel build artefacts
 	$(MAKE) -C $(KDIR) M=$(CURDIR)/driver clean

@@ -14,9 +14,10 @@ import time
 import pytest
 
 from astral_oracle.decode import PIN_COUNT, PinReading
-from astral_oracle.hwmon import find_hwmon_dir, load_module, read_hwmon_pins, unload_module
+from astral_oracle.hwmon import find_hwmon_dir, read_hwmon_pins
 from astral_oracle.i2c import read_pins
 from astral_oracle.load import run_burn
+from astral_oracle.modctl import load_module, unload_module
 
 pytestmark = pytest.mark.hardware
 

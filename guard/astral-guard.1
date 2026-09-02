@@ -21,13 +21,16 @@ verdict would inherit that.
 .SH OPTIONS
 .TP
 .B \-\-json
-Machine\-readable output, including the thresholds that were applied.
+Machine\-readable output, including every threshold that was applied, the two
+load gates among them: an absent imbalance finding means nothing unless the
+reader can see whether the run ever cleared
+.IR ratio_gate_ma .
 .TP
 .BI \-\-samples " N"
-Samples per run. Default 5.
+Samples per run, 1 to 32. Default 5.
 .TP
 .BI \-\-interval " MS"
-Milliseconds between samples. Defaults to the chip's own
+Milliseconds between samples, 0 to 3600000. Defaults to the chip's own
 .IR update_interval .
 Sampling faster than that only re\-reads the driver's cache.
 .TP
@@ -36,11 +39,12 @@ Where sysfs is mounted. Defaults to
 .IR /sys .
 .TP
 .BI \-\-warn\-ratio " PCT"
-The min/max warning threshold, as a percentage. Provisional \- see LIMITATIONS.
+The min/max warning threshold, as a percentage from 1 to 100. Provisional \-
+see LIMITATIONS.
 .TP
 .BI \-\-note\-ratio " PCT"
-The min/max advisory threshold. Advisory findings are printed but never change
-the exit code.
+The min/max advisory threshold, as a percentage from 1 to 100. Advisory
+findings are printed but never change the exit code.
 .TP
 .B \-\-quiet
 Print only when the result is not OK. Useful from
@@ -49,6 +53,15 @@ which then mails only on a problem.
 .TP
 .B \-\-version
 Print the version and exit.
+.PP
+A malformed or out\-of\-range numeric argument is refused with exit status 3
+(UNKNOWN) rather than falling back to a default. A threshold of 0 can never
+fire, so accepting one would disarm a rule while still reporting a clean run.
+.PP
+Readings are held to the same standard. A value that is not entirely a number,
+or that falls outside the range the driver itself refuses to publish outside
+of, fails the sample rather than being believed \- so it reports UNKNOWN, not a
+healthy pin.
 .SH RULES
 .TP
 .B pin\-current
@@ -77,8 +90,8 @@ WARNING.
 CRITICAL.
 .TP
 .B 3
-UNKNOWN \- no chip found, or a channel could not be read. Losing sight of the
-current is a fault, not silence.
+UNKNOWN \- no chip found, or a channel could not be read or believed. Losing
+sight of the current is a fault, not silence.
 .SH LIMITATIONS
 Absolute rules only. Without a per\-card baseline this catches a connector that
 is already near failure, not one drifting toward it.

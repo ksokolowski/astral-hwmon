@@ -1,28 +1,25 @@
 # SPDX-License-Identifier: MIT
 """The few parts of hwmon.py that are logic rather than I/O.
 
-Deliberately not a mirror of the whole module. read_hwmon_pins() and
-load_module() exist to touch real sysfs and real modprobe; testing them against
-files this suite wrote itself would prove only that the suite can write files,
-and this project already has the scar - an over-simplified fake sysfs once made
-a unit test agree with a bug real hardware rejected. Those stay in the hardware
-tier, where they are covered against the actual driver.
+Deliberately not a mirror of the whole module. read_hwmon_pins() exists to touch
+real sysfs; testing it against files this suite wrote itself would prove only
+that the suite can write files, and this project already has the scar - an
+over-simplified fake sysfs once made a unit test agree with a bug real hardware
+rejected. It stays in the hardware tier, covered against the actual driver.
 
 What is here is the logic that decides things: the asymmetric attribute naming,
-the search that has to skip entries it cannot read, the exclusion list that must
-not silently drop a new attribute, and module_resident() - which is two lines
-but which every anti-vacuity guard in test_gate.py leans on.
+the search that has to skip entries it cannot read, and the exclusion list that must
+not silently drop a new attribute. The module lifecycle moved to modctl.py, and
+its one testable piece with it - see test_modctl.py.
 """
 
+import re
 from pathlib import Path
-
-import pytest
 
 from astral_oracle.hwmon import (
     CHIP_NAME,
     current_attr,
     find_hwmon_dir,
-    module_resident,
     sensor_attributes,
     voltage_attr,
 )
@@ -94,26 +91,6 @@ def test_find_hwmon_dir_returns_none_without_a_hwmon_class(tmp_path: Path) -> No
     assert find_hwmon_dir(sysfs_root=str(tmp_path)) is None
 
 
-@pytest.mark.parametrize("resident", [True, False])
-def test_module_resident_spells_the_name_with_an_underscore(tmp_path: Path, resident: bool) -> None:
-    """Both outcomes, because a function stuck on True is the dangerous failure.
-
-    test_gate.py asserts module_resident() before concluding the driver declined
-    to register. If this could only ever return True, those guards would pass on
-    a machine where the module was never installed.
-    """
-    modules = tmp_path / "module"
-    modules.mkdir()
-    if resident:
-        (modules / "astral_hwmon").mkdir()
-    # The dash spelling must never match: modprobe takes astral-hwmon, but
-    # /sys/module and lsmod both report astral_hwmon.
-    (modules / "unrelated").mkdir()
-
-    assert module_resident(sysfs_root=str(tmp_path)) is resident
-    assert not (modules / "astral-hwmon").exists()
-
-
 def test_sensor_attributes_excludes_plumbing_but_keeps_new_attributes(
     tmp_path: Path,
 ) -> None:
@@ -134,3 +111,21 @@ def test_sensor_attributes_excludes_plumbing_but_keeps_new_attributes(
 
     names = {entry.name for entry in sensor_attributes(tmp_path)}
     assert names == {"in0_input", "curr1_input", "name", "update_interval", "temp1_input"}
+
+
+def test_c_and_python_chip_names_agree() -> None:
+    """The driver names the chip; this module must spell it the same way.
+
+    tests/native/test_names.c asserts the driver's ASTRAL_CHIP_NAME matches the
+    guard's GUARD_CHIP_NAME, and gives the reason: a hand-edit to either copy
+    leaves the reader silently finding nothing. There is a third copy - this one
+    - and the same reasoning applies to it, because find_hwmon_dir() returning
+    None reads as "the driver is not loaded" rather than as a bug. That test is
+    in the C tier and cannot see a Python constant, so this check lives here.
+    """
+    header = (Path(__file__).resolve().parents[2] / "driver" / "astral.h").read_text()
+    match = re.search(r'#define\s+ASTRAL_CHIP_NAME\s+"([^"]+)"', header)
+    assert match, "could not parse ASTRAL_CHIP_NAME out of driver/astral.h"
+    assert match.group(1) == CHIP_NAME, (
+        f'driver/astral.h says "{match.group(1)}", hwmon.py says "{CHIP_NAME}"'
+    )

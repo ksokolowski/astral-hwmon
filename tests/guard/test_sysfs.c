@@ -171,6 +171,82 @@ static void test_a_missing_channel_fails_the_whole_sample(void)
 	fakesys_destroy(&fs);
 }
 
+/* Every one of these once read as a healthy channel and the run exited OK.
+ * "8000abc" parsed as 8000 because nothing looked past the digits; 4294975296
+ * is 2^32 + 8000 and arrived as exactly 8000 because the narrowing from long to
+ * int is silent; 9999999999 reached the rules and overflowed them, which UBSan
+ * reports as undefined behaviour in guard_eval.
+ *
+ * A value the driver could not have published is not a measurement, so it has
+ * to fail the sample. main() turns that into UNKNOWN, which is the honest
+ * answer - and the one thing a guard must never do is report OK because it
+ * could not understand what it read.
+ */
+static void test_an_impossible_reading_is_not_a_healthy_one(void)
+{
+	static const struct {
+		const char *attr;
+		const char *value;
+	} bad[] = {
+		{ "curr1_input", "8000abc" },	 /* trailing junk */
+		{ "curr1_input", "4294975296" }, /* 2^32 + 8000 */
+		{ "curr1_input", "9999999999" }, /* wider than int */
+		{ "curr1_input", "-5000" },	 /* a u16 decode cannot emit this */
+		{ "curr1_input", "30001" },	 /* one past the driver's ceiling */
+		{ "in0_input", "5999" },	 /* one under the driver's floor */
+		{ "in0_input", "13001" },	 /* one over its ceiling */
+	};
+	size_t i;
+
+	for (i = 0; i < sizeof(bad) / sizeof(bad[0]); i++) {
+		struct fakesys fs;
+		struct guard_chip chips[GUARD_MAX_CHIPS];
+		struct guard_sample s;
+
+		fakesys_create(&fs);
+		fakesys_add_chip(&fs, "hwmon3", GUARD_CHIP_NAME);
+		fakesys_set_pins(&fs, "hwmon3", mv, ma);
+		fakesys_set_attr(&fs, "hwmon3", bad[i].attr, bad[i].value);
+
+		CHECK(guard_find_chips(fs.root, chips, GUARD_MAX_CHIPS) == 1,
+		      "chip must still be found with %s = \"%s\"",
+		      bad[i].attr, bad[i].value);
+		CHECK(guard_read_sample(&chips[0], &s) != 0,
+		      "%s = \"%s\" must fail the sample, not read as a value",
+		      bad[i].attr, bad[i].value);
+
+		fakesys_destroy(&fs);
+	}
+}
+
+/* update_interval only paces the sampling, so an unreadable one falls back to
+ * the default rather than failing the run. It still must not be believed: a
+ * nonsense value would otherwise become the gap between samples.
+ */
+static void test_a_nonsense_update_interval_falls_back(void)
+{
+	static const char *const bad[] = { "abc", "200ms", "-1", "3600001" };
+	struct fakesys fs;
+	struct guard_chip chips[GUARD_MAX_CHIPS];
+	size_t i;
+
+	for (i = 0; i < sizeof(bad) / sizeof(bad[0]); i++) {
+		fakesys_create(&fs);
+		fakesys_add_chip(&fs, "hwmon3", GUARD_CHIP_NAME);
+		fakesys_set_attr(&fs, "hwmon3", "update_interval", bad[i]);
+
+		CHECK(guard_find_chips(fs.root, chips, GUARD_MAX_CHIPS) == 1,
+		      "chip must still be found with update_interval \"%s\"",
+		      bad[i]);
+		CHECK(chips[0].update_interval_ms == GUARD_DEFAULT_INTERVAL_MS,
+		      "update_interval \"%s\": expected the %d ms default, got %d",
+		      bad[i], GUARD_DEFAULT_INTERVAL_MS,
+		      chips[0].update_interval_ms);
+
+		fakesys_destroy(&fs);
+	}
+}
+
 void run_sysfs_tests(void)
 {
 	RUN(test_finds_our_chip);
@@ -178,7 +254,9 @@ void run_sysfs_tests(void)
 	RUN(test_no_chip_is_not_success);
 	RUN(test_unreadable_root_is_an_error);
 	RUN(test_missing_update_interval_defaults);
+	RUN(test_a_nonsense_update_interval_falls_back);
 	RUN(test_reads_pins_with_the_right_numbering);
 	RUN(test_chip_vanishing_is_a_read_failure);
 	RUN(test_a_missing_channel_fails_the_whole_sample);
+	RUN(test_an_impossible_reading_is_not_a_healthy_one);
 }

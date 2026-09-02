@@ -1,4 +1,4 @@
-# Status — 2026-08-19
+# Status — 2026-09-03
 
 Where the project stands, what is verified, what is open, and
 which theories have already been ruled out so nobody re-investigates them.
@@ -10,7 +10,7 @@ Built, DKMS-installed, and **attaching automatically at boot** on the reference 
 `0x2b`). Twelve read-only hwmon channels plus `update_interval`, visible to `sensors` and
 anything on libsensors.
 
-- 47 unit tests, 18 hardware tests, 20 native tests, 18 guard tests, `make qa` green.
+- 60 unit tests, 18 hardware tests, 20 native tests, 18 guard tests, `make qa` green.
 - **`astral-guard` is built** — the userspace judgement layer, one-shot C11, monitoring-plugin
   exit codes, verified reporting OK on the reference card. Scope below.
 - **Opt-in protection exists, off by default.** `examples/astral-guard-poweroff.service`
@@ -126,21 +126,36 @@ So `BUS_NOTIFY_DEL_DEVICE` and the re-attach path are reachable only by
 `rmmod nvidia` / `modprobe nvidia`, which needs a console-only boot or a second machine — with
 a desktop session on the card, `nvidia` has ~534 references and will not unload.
 
-**CI has never actually run.** The workflow moved from `.gitea/workflows/` to
-`.github/workflows/` for the public repository, which is what makes it live: GitHub-hosted
-runners are free for public repos, so there is no runner to register any more. Its logic was
-validated locally (every commit passes the commit-msg gate; the skip-detection matches real
-pytest output) and the YAML parses, but no job has executed on a runner yet. Two things to
-watch on the first run: the commit-range fallback for an all-zero `github.event.before`, and
-the kernel-headers step, which now installs `linux-headers-generic` and points `KDIR` at it
-rather than asking for the runner's own Azure kernel headers, which are often absent.
+**CI runs green on GitHub.** The workflow moved from `.gitea/workflows/` to
+`.github/workflows/` for the public repository, which is what made it live: hosted runners are
+free for public repos, so there is no runner to register. First runs 2026-08-19: green on
+`main` and on the `v0.3.0` tag. Two things had been flagged to watch on the first run. The
+kernel-headers step held: the build completed with `KDIR` pointing at `linux-headers-generic`
+rather than at the runner's own Azure kernel headers. The commit-range fallback for an
+all-zero `github.event.before` has not been exercised yet — it fires only when a push creates
+history the clone does not have (branch creation, force-push), which no run has done — so it
+stays a watch-item until that happens once.
 
-**Two cards are Linux-verified.** `0x89E31043` on the reference machine, and `0x89EC1043`
-(ROG Astral RTX 5090 LC) confirmed by an owner report in issue #1 — the first evidence that
-the sensor block really is shared across the family rather than assumed to be. The other six
-ids are still published Astral SKUs listed on that assumption; each wants an owner report.
-The `card-report` issue template is the whole mechanism for closing this — it cannot be
-closed from this machine, and issue #1 is proof the mechanism works.
+**Two subsystem ids are Linux-verified, across three cards.** `0x89E31043` on the reference
+machine, and `0x89EC1043` confirmed twice by unsolicited owner reports: issue #1 (ROG Astral
+RTX 5090 LC, idle) and issue #2 (`ROG-ASTRAL-LC-RTX5090-O32G-GAMING`, the LC OC 32 GB). The
+two reporters name different SKUs and report the same id, so `0x89EC1043` spans at least both.
+Issue #1 was the first evidence that the sensor block really is shared across the family
+rather than assumed to be.
+
+Issue #2 adds what issue #1 could not: a **loaded** reading from a card that is not this one.
+7.92, 8.12, 8.22, 8.34, 8.32 and 8.30 A at 11.90–11.92 V — 49.2 A, about 586 W through the
+connector. Every loaded figure behind the guard's thresholds until then came from the
+reference machine's own burn. On that frame the worst pin sits 860 mA under `pin_warn_ma`
+(9200) and the pins balance to 95%, well clear of the 85% advisory, and `astral-guard` returns
+OK: the first outside evidence that the warn line is not set so tight that a healthy card at
+load trips it. The report also confirms the driver on Ubuntu 24.04 with NVIDIA 595.84, and on
+a two-digit adapter bus (`i2c-15`) — until then only the unit test's word-boundary case had
+covered a two-digit index.
+
+The other six ids are still published Astral SKUs listed on that assumption; each wants an
+owner report. The `card-report` issue template is the whole mechanism for closing this — it
+cannot be closed from this machine, and two unprompted reports are proof the mechanism works.
 
 ## Ruled out — do not re-investigate
 

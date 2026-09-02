@@ -13,12 +13,34 @@
 #define GUARD_DEFAULT_SAMPLES 5
 #define GUARD_DEFAULT_INTERVAL_MS 200
 
+/* An hour. This is a one-shot check: a gap beyond that is a mistyped argument
+ * or a nonsense update_interval, not intent. Bounds both --interval and the
+ * value read from the chip.
+ */
+#define GUARD_MAX_INTERVAL_MS 3600000
+
 /* Duplicated from driver/astral.h, which cannot be included here because it
  * pulls in <linux/i2c.h>. tests/native/test_names.c asserts the two agree - a
  * hand-edit to either copy would leave the guard silently finding nothing,
  * which reads as "no card" rather than as a bug.
  */
 #define GUARD_CHIP_NAME "astral12vhpwr"
+
+/* Also duplicated from driver/astral.h, for the same reason and policed by the
+ * same test. These are the bounds the driver refuses to publish outside of, so
+ * a reading outside them did not come from the driver and is not a measurement.
+ *
+ * The guard applies them because its reading path deserves the standard its
+ * argument path already has. strtol saturates and the narrowing to int is
+ * silent, so without a bound "4294975296" arrives as a perfectly healthy 8000
+ * mA and every rule passes: a guard that quietly stops guarding, which is the
+ * one failure mode this tool must not have. They also keep guard_eval's
+ * arithmetic in range by a wide margin - the widest product it forms is a pin
+ * current times 100, and 30000 * 100 is nowhere near INT_MAX.
+ */
+#define GUARD_MV_MIN 6000
+#define GUARD_MV_MAX 13000
+#define GUARD_MA_MAX 30000
 
 /* The enum values are the process exit codes: the monitoring-plugin convention
  * understood by Nagios, Icinga, Zabbix and checkmk. Keep them in this order.

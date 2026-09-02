@@ -51,13 +51,23 @@ def _read_hex(path: Path) -> int | None:
         return None
 
 
-def _matching_devices(sysfs_root: str, allow_unknown: bool) -> Iterator[tuple[Path, int, str]]:
+def _nvidia_devices(sysfs_root: str) -> Iterator[Path]:
+    """Every NVIDIA PCI device, in a stable order, or nothing if sysfs is absent.
+
+    Both the Astral search and the adapter sweep start here. Sorted because
+    iterdir() order is not defined and two callers comparing results would
+    otherwise disagree for no reason.
+    """
     devices = Path(sysfs_root) / "bus" / "pci" / "devices"
     if not devices.is_dir():
         return
     for dev in sorted(devices.iterdir()):
-        if _read_hex(dev / "vendor") != NVIDIA_VENDOR:
-            continue
+        if _read_hex(dev / "vendor") == NVIDIA_VENDOR:
+            yield dev
+
+
+def _matching_devices(sysfs_root: str, allow_unknown: bool) -> Iterator[tuple[Path, int, str]]:
+    for dev in _nvidia_devices(sysfs_root):
         sub_vendor = _read_hex(dev / "subsystem_vendor")
         sub_device = _read_hex(dev / "subsystem_device")
         if sub_vendor is None or sub_device is None:
@@ -100,12 +110,7 @@ def _adapter_numbers(paths: Iterator[Path]) -> set[int]:
 def nvidia_adapters(sysfs_root: str = "/sys") -> set[int]:
     """Every i2c adapter belonging to an NVIDIA GPU, Astral or not."""
     found: set[int] = set()
-    devices = Path(sysfs_root) / "bus" / "pci" / "devices"
-    if not devices.is_dir():
-        return found
-    for dev in sorted(devices.iterdir()):
-        if _read_hex(dev / "vendor") != NVIDIA_VENDOR:
-            continue
+    for dev in _nvidia_devices(sysfs_root):
         found |= _adapter_numbers(dev.glob("i2c-*"))
     return found
 

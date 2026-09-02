@@ -24,6 +24,13 @@ static u16 astral_u16_be(const u8 *buf, int offset)
  * tests/data/frames.jsonl on a host build - see tests/native. `buf` must hold
  * ASTRAL_BLOCK_LEN bytes; validating that is the caller's job, because on the
  * wire a short read is a transport failure rather than a decode one.
+ *
+ * Decodes first and validates afterwards, in astral_frame_plausible(), because
+ * this caller wants one verdict for the whole frame: a single implausible pin
+ * has to take all twelve channels with it. decode_frame() in the Python mirror
+ * validates inline and raises per pin instead, because its caller is a human
+ * diagnosing which pin is wrong. That difference is deliberate on both sides -
+ * do not "align" them.
  */
 void astral_decode_frame(const u8 *buf, struct astral_frame *out)
 {

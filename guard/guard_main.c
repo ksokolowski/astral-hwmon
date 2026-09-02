@@ -38,6 +38,36 @@ static void usage(FILE *out)
 		guard_limits_default.ratio_note_pct);
 }
 
+/* strtol, not atoi, and a range on every option.
+ *
+ * atoi("abc") is 0 with no way to tell it from a real 0, and 0 is the one
+ * value a ratio threshold must never silently take: R3 fires on
+ * `lo * 100 < hi * pct`, which is false for every reading when pct is 0. So
+ * `--warn-ratio` given a non-numeric value, or an explicit 0, disarmed the
+ * imbalance warning and still exited OK. A guard that quietly stops guarding
+ * is the single failure mode this tool must not have, so a malformed or
+ * out-of-range argument is refused, loudly, naming the value rejected. That
+ * also catches trailing junk: "70%" is a mistake worth reporting, not 70.
+ *
+ * No errno check: strtol saturates to LONG_MAX/LONG_MIN on overflow, and both
+ * are outside every range below.
+ */
+static int parse_int(const char *s, int lo, int hi, const char *what, int *out)
+{
+	char *end;
+	long v;
+
+	v = strtol(s, &end, 10);
+	if (end == s || *end != '\0' || v < lo || v > hi) {
+		fprintf(stderr, "%s takes an integer in %d..%d, not \"%s\"\n",
+			what, lo, hi, s);
+		return -1;
+	}
+
+	*out = (int)v;
+	return 0;
+}
+
 static void nap(int ms)
 {
 	struct timespec ts;
@@ -74,25 +104,35 @@ int main(int argc, char **argv)
 			usage(stdout);
 			return GUARD_OK;
 		} else if (!strcmp(a, "--samples") && i + 1 < argc) {
-			samples = atoi(argv[++i]);
+			if (parse_int(argv[++i], 1, GUARD_MAX_SAMPLES,
+				      "--samples", &samples))
+				return GUARD_UNKNOWN;
 		} else if (!strcmp(a, "--interval") && i + 1 < argc) {
-			interval = atoi(argv[++i]);
+			/* 0 keeps the chip's own update_interval. The ceiling
+			 * is shared with the one applied to the chip's own
+			 * value, so both paths agree on what is nonsense.
+			 */
+			if (parse_int(argv[++i], 0, GUARD_MAX_INTERVAL_MS,
+				      "--interval", &interval))
+				return GUARD_UNKNOWN;
 		} else if (!strcmp(a, "--sysfs-root") && i + 1 < argc) {
 			sysfs_root = argv[++i];
 		} else if (!strcmp(a, "--warn-ratio") && i + 1 < argc) {
-			lim.ratio_warn_pct = atoi(argv[++i]);
+			/* 1..100, never 0: see parse_int. 100 means any
+			 * imbalance at all warns, which is noisy but honest.
+			 */
+			if (parse_int(argv[++i], 1, 100,
+				      "--warn-ratio", &lim.ratio_warn_pct))
+				return GUARD_UNKNOWN;
 		} else if (!strcmp(a, "--note-ratio") && i + 1 < argc) {
-			lim.ratio_note_pct = atoi(argv[++i]);
+			if (parse_int(argv[++i], 1, 100,
+				      "--note-ratio", &lim.ratio_note_pct))
+				return GUARD_UNKNOWN;
 		} else {
 			fprintf(stderr, "unknown or incomplete option: %s\n", a);
 			usage(stderr);
 			return GUARD_UNKNOWN;
 		}
-	}
-
-	if (samples < 1 || samples > GUARD_MAX_SAMPLES) {
-		fprintf(stderr, "--samples must be 1..%d\n", GUARD_MAX_SAMPLES);
-		return GUARD_UNKNOWN;
 	}
 
 	found = guard_find_chips(sysfs_root, chips, GUARD_MAX_CHIPS);

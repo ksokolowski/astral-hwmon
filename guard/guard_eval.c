@@ -58,6 +58,23 @@ static void add(struct guard_verdict *v, int level, const char *rule,
 {
 	struct guard_finding *f;
 
+	/* The verdict is raised before the capacity check, never after, so a
+	 * full findings array costs detail and never the level. The rules can
+	 * currently produce at most fourteen findings - six open-pin, six
+	 * pin-current, one imbalance, one voltage - against GUARD_MAX_FINDINGS
+	 * of sixteen, so the truncation below is unreachable today. It is
+	 * ordered this way because the day it stops being unreachable, the
+	 * alternative is a CRITICAL silently reported as OK.
+	 *
+	 * An advisory is recorded but can never become the verdict: it exists to
+	 * be read by a human, not to page anyone. Everything else is compared by
+	 * severity rank rather than by the raw value, so UNKNOWN cannot mask a
+	 * CRITICAL on another chip.
+	 */
+	if (level != GUARD_NOTE &&
+	    guard_severity(level) > guard_severity((int)v->level))
+		v->level = (enum guard_level)level;
+
 	if (v->n == GUARD_MAX_FINDINGS)
 		return;
 	f = &v->f[v->n++];
@@ -66,15 +83,6 @@ static void add(struct guard_verdict *v, int level, const char *rule,
 	f->pin = pin;
 	f->value = value;
 	snprintf(f->detail, sizeof(f->detail), "%s", detail);
-
-	/* An advisory is recorded but can never become the verdict: it exists to
-	 * be read by a human, not to page anyone. Everything else is compared by
-	 * severity rank rather than by the raw value, so UNKNOWN cannot mask a
-	 * CRITICAL on another chip.
-	 */
-	if (level != GUARD_NOTE &&
-	    guard_severity(level) > guard_severity((int)v->level))
-		v->level = (enum guard_level)level;
 }
 
 enum guard_level guard_eval(const struct guard_sample *s, size_t n,

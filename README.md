@@ -54,10 +54,12 @@ including non-Astral RTX 5080/5090 cards.
 | `1043:8A45` | ROG Astral RTX 5080 OC Hatsune Miku | inherited |
 
 "Inherited" means the id is a published Astral SKU listed on the assumption that the sensor
-block is identical across the family. The RTX 5090 OC and the RTX 5090 LC have been read on Linux
-here — **a report from any of the other six is the single most useful contribution to this
-project**, and there is a [card report issue template][card-report] for it. Reports that it
-does *not* work are just as welcome.
+block is identical across the family. The RTX 5090 OC and the RTX 5090 LC have been read on
+Linux — the OC here, the LC by two owner reports, idle and under a ~586 W load. `1043:89EC`
+covers more than one LC SKU name: both the plain LC and the LC OC 32 GB report it. **A report
+from any of the other six is the single most useful contribution to this project**, and there
+is a [card report issue template][card-report] for it. Reports that it does *not* work are
+just as welcome.
 
 [card-report]: https://github.com/ksokolowski/astral-hwmon/issues/new?template=card-report.yml
 
@@ -215,8 +217,9 @@ that matters most: somebody full-screen in a game with no terminal open.
 
 It also measures *current*, while the hazard is contact heating: a green verdict is not a
 temperature claim. Two card models have been read on real hardware — the reference machine's
-RTX 5090 OC and a user-reported RTX 5090 LC — so on any other Astral variant the rules are
-reasoned, not observed.
+RTX 5090 OC and a user-reported RTX 5090 LC, the latter under a ~586 W load that cleared every
+threshold with 860 mA of margin on the worst pin — so on any other Astral variant the rules
+are reasoned, not observed.
 
 `man 1 astral-guard` documents each rule and where its number came from.
 [`guard/README.md`](guard/README.md) covers the tests, including what they deliberately do

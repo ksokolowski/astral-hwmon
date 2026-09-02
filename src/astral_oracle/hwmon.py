@@ -1,5 +1,8 @@
 # SPDX-License-Identifier: MIT
-"""Read the driver's own surface, and drive its module lifecycle.
+"""Read the driver's own sysfs surface.
+
+Reading only: nothing here needs privileges, and nothing here can change the
+machine. Loading and unloading the module is modctl.py's job.
 
 Channel numbering follows hwmon convention, which is not uniform: voltage
 inputs are ZERO-indexed (in0..in5 = pins 1..6) while current inputs are
@@ -9,13 +12,11 @@ ONE-indexed (curr1..curr6 = pins 1..6). Verified against the loaded driver
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
 from .decode import PIN_COUNT, PinReading
 
 CHIP_NAME = "astral12vhpwr"
-MODULE_NAME = "astral-hwmon"
 HWMON_ROOT = Path("/sys/class/hwmon")
 
 
@@ -75,28 +76,3 @@ def sensor_attributes(path: Path) -> list[Path]:
         for entry in sorted(path.iterdir())
         if entry.is_file() and entry.name not in SYSFS_PLUMBING
     ]
-
-
-def module_resident(sysfs_root: str = "/sys") -> bool:
-    """Is the module loaded into the kernel?
-
-    Deliberately distinct from find_hwmon_dir(): the module can be resident and
-    have registered nothing (no card, foreign bus, implausible frame). Tests
-    that assert "it declined" need both facts to mean anything - which is why
-    this one is unit-tested despite being two lines. If it ever returned True
-    unconditionally, every anti-vacuity guard in test_gate.py would still pass
-    while proving nothing.
-
-    Note the dash: the module is astral-hwmon but /sys/module spells it with an
-    underscore, as does lsmod.
-    """
-    return Path(sysfs_root).joinpath("module", MODULE_NAME.replace("-", "_")).exists()
-
-
-def load_module(**params: object) -> None:
-    args = [f"{key}={value}" for key, value in params.items()]
-    subprocess.run(["sudo", "modprobe", MODULE_NAME, *args], check=True)
-
-
-def unload_module() -> None:
-    subprocess.run(["sudo", "modprobe", "-r", MODULE_NAME], check=False)

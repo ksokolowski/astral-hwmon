@@ -3,7 +3,7 @@
 
 from pathlib import Path
 
-from astral_oracle.discover import ASTRAL_SUBSYSTEM_IDS, find_astral_adapter
+from astral_oracle.discover import ADAPTER_INDEX, ASTRAL_SUBSYSTEM_IDS, find_astral_adapter
 
 RTX5090_OC = 0x89E31043
 
@@ -163,4 +163,28 @@ def test_c_and_python_allowlists_agree() -> None:
     assert from_c == ASTRAL_SUBSYSTEM_IDS, (
         f"only in C: {sorted(set(from_c) - set(ASTRAL_SUBSYSTEM_IDS))}, "
         f"only in Python: {sorted(set(ASTRAL_SUBSYSTEM_IDS) - set(from_c))}"
+    )
+
+
+def test_c_and_python_adapter_indices_agree() -> None:
+    """Which of the card's seven adapters carries the chip, agreed by both sides.
+
+    The same class of gap the chip name had: a measured hardware fact, kept by
+    hand in two places, with nothing checking them. Drift here is quiet in the
+    worst way - the driver and the oracle would each look at a different bus, and
+    the hardware agreement test would compare two readings that were never of the
+    same thing.
+
+    This does not weaken the independence rule. The decode and the search stay
+    separate implementations; what is asserted is that they agree about the
+    hardware, exactly as test_c_and_python_allowlists_agree does for the model
+    table.
+    """
+    import re
+
+    header = (Path(__file__).resolve().parents[2] / "driver" / "astral.h").read_text()
+    match = re.search(r"#define\s+ASTRAL_ADAPTER_INDEX\s+(\d+)", header)
+    assert match, "could not parse ASTRAL_ADAPTER_INDEX out of driver/astral.h"
+    assert int(match.group(1)) == ADAPTER_INDEX, (
+        f"driver/astral.h says adapter {match.group(1)}, discover.py says {ADAPTER_INDEX}"
     )
