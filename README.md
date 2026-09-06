@@ -63,7 +63,9 @@ just as welcome.
 
 [card-report]: https://github.com/ksokolowski/astral-hwmon/issues/new?template=card-report.yml
 
-Requires the proprietary NVIDIA driver, which is what exposes the GPU's I2C adapters.
+Requires NVIDIA's kernel driver — open or proprietary, either registers the adapters —
+which is what exposes the GPU's I2C buses. The in-tree drivers do not; see
+[Why it is out of tree](#why-it-is-out-of-tree).
 
 ## Install
 
@@ -272,13 +274,19 @@ Out of tree is where this driver currently belongs, not somewhere it is parked f
 ambition. hwmon is a welcoming subsystem and a small I2C sensor driver is squarely the kind of
 thing it takes. Two things stand in the way, and neither is fixed by sending a patch.
 
-**It cannot reach the hardware without a proprietary module.** The chip sits on an I2C adapter
+**Its only route to the hardware is an out-of-tree module.** The chip sits on an I2C adapter
 that the NVIDIA driver registers; no `nvidia` module means no adapter, and nothing for the
 driver to bind to. That is why the load sequence waits for adapters rather than probing at
-`module_init`. A mainline driver whose only route to the hardware is an out-of-tree
-proprietary module is a hard sell no matter how clean it is. If a free driver — nouveau, or
-the newer NVIDIA kernel stack — ever registers the same adapters on these cards, this
-objection goes away, and that is the change most likely to make upstreaming realistic.
+`module_init`. That module need not be proprietary — NVIDIA's open kernel modules register the
+same adapters under a dual MIT/GPL licence, and they are what the reference machine runs — but
+it is still out of tree, and a mainline driver whose only route to the hardware is an
+out-of-tree dependency is a hard sell no matter how clean it is.
+
+The in-tree drivers are not an alternative today. nouveau has the machinery and registers the
+GPU's I2C buses as ordinary adapters, but only through Ampere: every Ada and Blackwell chipset
+omits the subdev, because display and DDC moved to GSP firmware. Nova has no I2C code at all.
+An in-tree driver registering these adapters on these cards is the change most likely to make
+upstreaming realistic; `docs/STATUS.md` records where that stands and what was checked.
 
 **The protocol was measured, not documented.** The register layout, scaling and pin order in
 `docs/measurements/` came from reading the author's own card and cross-checking against

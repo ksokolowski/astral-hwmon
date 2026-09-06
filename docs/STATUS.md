@@ -1,4 +1,4 @@
-# Status — 2026-09-03
+# Status — 2026-09-06
 
 Where the project stands, what is verified, what is open, and
 which theories have already been ruled out so nobody re-investigates them.
@@ -6,7 +6,7 @@ which theories have already been ruled out so nobody re-investigates them.
 ## Working
 
 Built, DKMS-installed, and **attaching automatically at boot** on the reference machine
-(Ubuntu 26.04, kernel 7.0.0-30, ROG Astral RTX 5090 OC `0x89E31043`, chip on `i2c-4` at
+(Ubuntu 26.04, kernel 7.0.0-31, ROG Astral RTX 5090 OC `0x89E31043`, chip on `i2c-4` at
 `0x2b`). Twelve read-only hwmon channels plus `update_interval`, visible to `sensors` and
 anything on libsensors.
 
@@ -168,6 +168,31 @@ because it never polls — it touches I2C only when something reads a sensor.
 **Userspace is not locked out of `0x2b` by the bound driver.** Assumed in an early draft of
 design, disproved on hardware: no `i2c_driver` is bound to the client, so i2c-dev never
 marks the address busy. This is why the agreement test samples both paths simultaneously.
+
+**The free drivers are not an alternative route to this data.** Checked against mainline
+and against the `nouveau.ko` shipped with kernel 7.0.0-31, not assumed. nouveau does register
+the GPU's DCB I2C buses as ordinary adapters — `nvkm_i2c_bus_ctor()` in
+`nvkm/subdev/i2c/bus.c` names them `nvkm-<pci-addr>-bus-<id>` and calls `i2c_bit_add_bus()`
+or `i2c_add_adapter()`, so they would reach `/dev/i2c-N` exactly as the NVIDIA ones do. The
+subdev is simply not wired up past Ampere: in `nvkm/engine/device/base.c` the per-chipset
+table declares `.i2c` through `nv177_chipset` (GA107) and omits it for every Ada and
+Blackwell entry, including `nv1b2_chipset` (GB202) — display and DDC moved to GSP-RM firmware
+and the bit-bang path was not carried forward. On a card this driver targets, nouveau
+therefore publishes no GPU I2C adapter at all, and discovery would correctly find nothing.
+
+Nova is further away, not closer. `drivers/gpu/nova-core` has no I2C code; its only token of
+the kind is `NV_THERM_I2CS_SCRATCH`, an I2C-secondary scratch register used as a mailbox to
+poll FSP boot completion. `drivers/gpu/drm/nova` has no display code yet, so DDC is not on
+the horizon either. And the in-tree `i2c-nvidia-gpu` is unrelated hardware — it matches PCI
+class `0x0c80`, the separate USB Type-C controller function on Turing boards, not the board
+buses the sensor sits on.
+
+The practical answer for an Astral owner is narrower than it first looks, and better. The
+reference machine already runs the **open** kernel modules (`nvidia-dkms-610-open`,
+`nvidia.ko` reporting `license: Dual MIT/GPL`), and it is that open code which publishes
+`NVIDIA i2c adapter 1 at 1:00.0`. Bus access here does not depend on a binary kernel module;
+it depends on `nvidia-open`. There is no free-driver substitute to migrate to, and none is
+being sought — this is recorded so the question is not re-opened.
 
 ## Bugs found and fixed, with their mechanisms
 
