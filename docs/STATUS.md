@@ -180,19 +180,40 @@ Blackwell entry, including `nv1b2_chipset` (GB202) — display and DDC moved to 
 and the bit-bang path was not carried forward. On a card this driver targets, nouveau
 therefore publishes no GPU I2C adapter at all, and discovery would correctly find nothing.
 
-Nova is further away, not closer. `drivers/gpu/nova-core` has no I2C code; its only token of
-the kind is `NV_THERM_I2CS_SCRATCH`, an I2C-secondary scratch register used as a mailbox to
-poll FSP boot completion. `drivers/gpu/drm/nova` has no display code yet, so DDC is not on
-the horizon either. And the in-tree `i2c-nvidia-gpu` is unrelated hardware — it matches PCI
-class `0x0c80`, the separate USB Type-C controller function on Turing boards, not the board
-buses the sensor sits on.
+Nova is further away, not closer, despite being the designated successor for exactly this
+hardware. `drivers/gpu/nova-core` has no I2C code; its only token of the kind is
+`NV_THERM_I2CS_SCRATCH`, an I2C-secondary scratch register used as a mailbox to poll FSP boot
+completion. `Documentation/gpu/nova/core/todo.rst` is entirely foundational — devinit, MMU,
+VRAM allocator, instance memory, GSP bootstrap and message queue, FIFO, GR, CE, VFN IRQ — and
+mentions neither display nor DDC nor I2C. Both Kconfigs still read "work in progress and may
+not be functional". `rust/kernel/i2c.rs` does exist, but it is the consumer side only:
+`i2c_driver`, `I2cClient`, probe and remove. There is no binding for `i2c_add_adapter`, so a
+Rust driver cannot register a bus at all until somebody writes the provider abstraction.
+An I2C bus in Nova therefore needs three things stacked, where nouveau needs one backend
+behind machinery that already exists.
+
+And the in-tree `i2c-nvidia-gpu` is unrelated hardware — it matches PCI class `0x0c80`, the
+separate USB Type-C controller function on Turing boards, not the board buses the sensor
+sits on.
 
 The practical answer for an Astral owner is narrower than it first looks, and better. The
 reference machine already runs the **open** kernel modules (`nvidia-dkms-610-open`,
 `nvidia.ko` reporting `license: Dual MIT/GPL`), and it is that open code which publishes
 `NVIDIA i2c adapter 1 at 1:00.0`. Bus access here does not depend on a binary kernel module;
-it depends on `nvidia-open`. There is no free-driver substitute to migrate to, and none is
-being sought — this is recorded so the question is not re-opened.
+it depends on `nvidia-open`. Those modules are not themselves in mainline and NVIDIA has not
+proposed them for it — the ABI is tied to driver releases and the GSP interface is still
+moving — so "out of tree", not "proprietary", is the objection that actually applies here.
+There is no free-driver substitute to migrate to, and none is being sought — this is recorded
+so the question is not re-opened.
+
+One pointer, for whoever eventually builds the in-tree path. GSP-RM already exposes an I2C
+API, published by NVIDIA under MIT in the open modules as class `NV40_I2C` (`0x402c`):
+`NV402C_CTRL_CMD_I2C_GET_PORT_INFO` enumerates ports and `NV402C_CTRL_CMD_I2C_TRANSACTION`
+carries transfers, with `SMBUS_MULTIBYTE_REGISTER_BLOCK_RW` among its types — register index
+then N bytes, which is precisely the shape of the one call this driver makes at
+`astral_regs.c`. Whether the firmware will drive a non-DDC port on the host's behalf is
+untested. Recorded because it is the interface such work would build on, not because it is
+planned here.
 
 ## Bugs found and fixed, with their mechanisms
 
