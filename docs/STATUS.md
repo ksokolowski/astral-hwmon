@@ -1,4 +1,4 @@
-# Status — 2026-09-06
+# Status — 2026-10-25
 
 Where the project stands, what is verified, what is open, and
 which theories have already been ruled out so nobody re-investigates them.
@@ -103,9 +103,9 @@ What was deliberately left out, and why:
 - **No staleness check.** The guard does not verify the driver's readings are fresh. A wedged
   sensor path would read as steady rather than absent. Deferred deliberately, not forgotten.
 - **Thresholds are reasoned from public sources, not tuned against a fleet.** ASUS Power
-  Detector+ and Thermal Grizzly's WireView Pro II supply the numbers, and no connector here
-  has ever been measured while actually degrading. A second card being confirmed does not
-  change this: it widens the evidence for the *protocol*, not for the thresholds.
+  Detector+ and Thermal Grizzly's WireView Pro II supply the numbers. One degrading connector
+  has now been measured in the field (issue #3, below), and it lands where R3 says it should.
+  One case supports the rule's shape but cannot tune its thresholds.
 
 The old blocking gap — every threshold sitting above anything ever measured — is **closed**:
 the 581 W burn reached 8.56 A on the busiest pin and the projected fingerprint held to 0.23 pp.
@@ -136,10 +136,12 @@ all-zero `github.event.before` has not been exercised yet — it fires only when
 history the clone does not have (branch creation, force-push), which no run has done — so it
 stays a watch-item until that happens once.
 
-**Two subsystem ids are Linux-verified, across three cards.** `0x89E31043` on the reference
-machine, and `0x89EC1043` confirmed twice by unsolicited owner reports: issue #1 (ROG Astral
-RTX 5090 LC, idle) and issue #2 (`ROG-ASTRAL-LC-RTX5090-O32G-GAMING`, the LC OC 32 GB). The
-two reporters name different SKUs and report the same id, so `0x89EC1043` spans at least both.
+**Two subsystem ids are Linux-verified, across five cards.** `0x89E31043` on the reference
+machine and on a second owner's card (issue #4, `ROG-ASTRAL-RTX5090-O32G-GAMING`, kernel 6.8,
+NVIDIA 610.43.02), and `0x89EC1043` confirmed three times by unsolicited owner reports:
+issue #1 (ROG Astral RTX 5090 LC, idle), issue #2 (`ROG-ASTRAL-LC-RTX5090-O32G-GAMING`, the
+LC OC 32 GB) and issue #3 (the same SKU, below). Issues
+#1 and #2 name different SKUs and report the same id, so `0x89EC1043` spans at least both.
 Issue #1 was the first evidence that the sensor block really is shared across the family
 rather than assumed to be.
 
@@ -153,9 +155,23 @@ load trips it. The report also confirms the driver on Ubuntu 24.04 with NVIDIA 5
 a two-digit adapter bus (`i2c-15`) — until then only the unit test's word-boundary case had
 covered a two-digit index.
 
+Issue #3 (a third `0x89EC1043` owner, `ROG-ASTRAL-LC-RTX5090-O32G-GAMING`) is the **first
+degrading connector this driver has seen**, and the first check of its readings against an
+instrument that does not read the chip. The first report showed pin 2 low at idle (200 mA
+against 260–280) and under load (4.92 A against 6.22–6.76 A, min/max 0.728, R3's NOTE band).
+The owner then clamped all six wires with a Fluke 301D DC clamp meter and found they agree with
+the driver. Handling the wires moved the fault to pin 1: 4.30, 5.06, 7.16, 5.98, 7.34 and
+7.30 A at about 469 W, min/max 0.586, which is below R3's CRIT line. A Netdata trace of the same
+card at steady load shows pin 1 sliding from about 4.9 A to 3.8 A over three minutes, which fits
+a contact whose resistance rises as it heats, and jumping back to about 5.7 A when the owner
+pressed the pin 1 wire into the PSU-side connector. ASUS is sending a replacement cable.
+
+The busiest pin never passed 7.4 A, so R1 (9.2 A) would have stayed silent throughout. Only
+the min/max rule catches this failure, which is the case `guard/README.md` makes for it. Both frames are now in `tests/data/guard-cases.jsonl`.
+
 The other six ids are still published Astral SKUs listed on that assumption; each wants an
 owner report. The `card-report` issue template is the whole mechanism for closing this — it
-cannot be closed from this machine, and two unprompted reports are proof the mechanism works.
+cannot be closed from this machine, and four unprompted reports are proof the mechanism works.
 
 ## Ruled out — do not re-investigate
 
