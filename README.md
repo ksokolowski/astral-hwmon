@@ -55,13 +55,17 @@ including non-Astral RTX 5080/5090 cards.
 
 "Inherited" means the id is a published Astral SKU listed on the assumption that the sensor
 block is identical across the family. The RTX 5090 OC and the RTX 5090 LC have been read on
-Linux — the OC here, the LC by two owner reports, idle and under a ~586 W load. `1043:89EC`
+Linux: the OC here and by one owner report, the LC by three owner reports, idle and under load
+up to ~586 W. One LC owner checked all six wires with a DC clamp meter and found they agree
+with the driver. The same card then caught a cable with failing contacts ([issue #3][issue-3],
+[data](docs/measurements/2026-10-24/)). `1043:89EC`
 covers more than one LC SKU name: both the plain LC and the LC OC 32 GB report it. **A report
 from any of the other six is the single most useful contribution to this project**, and there
 is a [card report issue template][card-report] for it. Reports that it does *not* work are
 just as welcome.
 
 [card-report]: https://github.com/ksokolowski/astral-hwmon/issues/new?template=card-report.yml
+[issue-3]: https://github.com/ksokolowski/astral-hwmon/issues/3
 
 Requires NVIDIA's kernel driver — open or proprietary, either registers the adapters —
 which is what exposes the GPU's I2C buses. The in-tree drivers do not; see

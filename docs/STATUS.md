@@ -157,17 +157,16 @@ covered a two-digit index.
 
 Issue #3 (a third `0x89EC1043` owner, `ROG-ASTRAL-LC-RTX5090-O32G-GAMING`) is the **first
 degrading connector this driver has seen**, and the first check of its readings against an
-instrument that does not read the chip. The first report showed pin 2 low at idle (200 mA
-against 260–280) and under load (4.92 A against 6.22–6.76 A, min/max 0.728, R3's NOTE band).
-The owner then clamped all six wires with a Fluke 301D DC clamp meter and found they agree with
-the driver. Handling the wires moved the fault to pin 1: 4.30, 5.06, 7.16, 5.98, 7.34 and
-7.30 A at about 469 W, min/max 0.586, which is below R3's CRIT line. A Netdata trace of the same
-card at steady load shows pin 1 sliding from about 4.9 A to 3.8 A over three minutes, which fits
-a contact whose resistance rises as it heats, and jumping back to about 5.7 A when the owner
-pressed the pin 1 wire into the PSU-side connector. ASUS is sending a replacement cable.
+instrument that does not read the chip. The owner clamped all six wires with a Fluke 301D DC
+clamp meter and found they agree with the driver. Their log shows pin 1 sinking from about
+13.7% of the total to about 10% within three minutes of steady load, and recovering when the
+wire is pressed into the PSU-side connector. Pins 2 and 4 stay low even then, so the cable has
+more than one weak contact. ASUS is sending a replacement. The data and the full reading are
+in `docs/measurements/2026-10-24/`.
 
-The busiest pin never passed 7.4 A, so R1 (9.2 A) would have stayed silent throughout. Only
-the min/max rule catches this failure, which is the case `guard/README.md` makes for it. Both frames are now in `tests/data/guard-cases.jsonl`.
+The busiest pin never passed 7.6 A, so R1 (9.2 A) would have stayed silent throughout. Only
+the min/max rule catches this failure, which is the case `guard/README.md` makes for it. Four
+frames from this card are now in `tests/data/guard-cases.jsonl`.
 
 The other six ids are still published Astral SKUs listed on that assumption; each wants an
 owner report. The `card-report` issue template is the whole mechanism for closing this — it
