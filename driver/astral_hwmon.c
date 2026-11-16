@@ -13,7 +13,16 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/notifier.h>
+#include <linux/version.h>
 #include <linux/workqueue.h>
+
+/*
+ * Kernel 6.17 added system_percpu_wq as the new name for the per-CPU system_wq, which is now
+ * deprecated: 7.3 logs a warning when work is queued on it. Older kernels only have system_wq.
+ */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 17, 0)
+#define system_percpu_wq system_wq
+#endif
 
 #include "astral.h"
 
@@ -528,7 +537,7 @@ static int astral_bus_notify(struct notifier_block *nb, unsigned long action, vo
 		mutex_unlock(&astral_lock);
 
 		if (rearm)
-			mod_delayed_work(system_wq, &astral_probe_work,
+			mod_delayed_work(system_percpu_wq, &astral_probe_work,
 					 msecs_to_jiffies(ASTRAL_RETRY_DELAY_MS));
 		break;
 	case BUS_NOTIFY_DEL_DEVICE:
