@@ -1,4 +1,4 @@
-# Status — 2026-10-25
+# Status — 2026-11-16
 
 Where the project stands, what is verified, what is open, and
 which theories have already been ruled out so nobody re-investigates them.
@@ -6,8 +6,8 @@ which theories have already been ruled out so nobody re-investigates them.
 ## Working
 
 Built, DKMS-installed, and **attaching automatically at boot** on the reference machine
-(Ubuntu 26.04, kernel 7.0.0-31, ROG Astral RTX 5090 OC `0x89E31043`, chip on `i2c-4` at
-`0x2b`). Twelve read-only hwmon channels plus `update_interval`, visible to `sensors` and
+(Ubuntu 26.10, kernel 7.3.0-10, NVIDIA 615.71.09, ROG Astral RTX 5090 OC `0x89E31043`, chip
+on `i2c-9` at `0x2b`; it was `i2c-4` under kernel 7.0). Twelve read-only hwmon channels plus `update_interval`, visible to `sensors` and
 anything on libsensors.
 
 - 60 unit tests, 18 hardware tests, 20 native tests, 18 guard tests, `make qa` green.
@@ -27,6 +27,12 @@ anything on libsensors.
   hardware tests pass, adapter name format unchanged, register layout unchanged. The one thing
   that could have broken this driver — the `NVIDIA i2c adapter N at <pci>` name it parses —
   did not change across the branch.
+- **Builds and runs on kernel 7.3.** The only change it needed: 7.3 logs a deprecation
+  warning when work is queued on `system_wq`, which the probe rearm did at boot. It now uses
+  `system_percpu_wq`, with a fallback to `system_wq` before 6.17, where the new name does not
+  exist. Warning-free builds against 7.3 and 7.0 headers, and all 18 hardware tests pass on
+  7.3. Still to confirm: a boot with the fix installed, which is the only path that queues
+  the rearm. The pre-6.17 fallback has not been built anywhere yet.
 
 ## Verified by measurement
 

@@ -4,6 +4,15 @@ Notable changes per release. The version lives in `dkms.conf` and is mirrored by
 `MODULE_VERSION()` and `pyproject.toml`; `astral-guard` takes its `--version` string from
 `dkms.conf` via the Makefile, so it cannot drift.
 
+## 0.3.2 — unreleased
+
+### Fixed
+
+- Kernel 7.3 logged `astral_probe_worker enqueued on deprecated workqueue` at boot, because
+  the probe rearm queued on `system_wq`. It now queues on `system_percpu_wq`, the name 6.17
+  introduced, and falls back to `system_wq` on older kernels. The driver attached either way;
+  this removes the warning before `system_wq` is removed outright.
+
 ## 0.3.1 — 2026-09-03
 
 A clean-code pass over the shipped C and Python, plus dev-gate repairs found while reviewing
