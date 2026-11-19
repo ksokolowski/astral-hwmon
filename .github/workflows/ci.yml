@@ -98,7 +98,21 @@ jobs:
           fi
 
   build-module:
-    runs-on: ubuntu-latest
+    # Two header trees, because the driver has a compile-time branch on the
+    # kernel version: before 6.17 system_percpu_wq does not exist and
+    # astral_hwmon.c maps it to system_wq. ubuntu-latest carries 7.x headers
+    # and never compiles that fallback; ubuntu-24.04's linux-headers-generic
+    # is 6.8, the kernel at least one owner report runs.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            headers: current
+          - runner: ubuntu-24.04
+            headers: pre-6.17
+    name: build-module (${{ matrix.headers }})
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
@@ -135,6 +149,20 @@ jobs:
           test -n "$kdir" || { echo "no kernel build tree found" >&2; exit 1; }
           echo "KDIR=$kdir" >> "$GITHUB_ENV"
           echo "building against $kdir"
+
+      # Without this, an archive moving 24.04's generic headers past 6.17 would
+      # turn the fallback leg into a second copy of the other one, silently.
+      - name: Check the pre-6.17 leg really has pre-6.17 headers
+        if: matrix.headers == 'pre-6.17'
+        run: |
+          set -euo pipefail
+          ver=$(make -s -C "$KDIR" kernelversion)
+          echo "headers are $ver"
+          printf '%s\n6.17\n' "$ver" | sort -V -C || {
+            echo "expected headers older than 6.17, got $ver" >&2
+            exit 1
+          }
+          test "$ver" != 6.17 || { echo "expected headers older than 6.17, got $ver" >&2; exit 1; }
 
       # The driver's pure sources compiled for the host against the shims in
       # tests/native/linux, run under ASan/UBSan. This is the only gate that

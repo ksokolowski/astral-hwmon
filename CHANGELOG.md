@@ -4,7 +4,7 @@ Notable changes per release. The version lives in `dkms.conf` and is mirrored by
 `MODULE_VERSION()` and `pyproject.toml`; `astral-guard` takes its `--version` string from
 `dkms.conf` via the Makefile, so it cannot drift.
 
-## 0.3.2 — unreleased
+## 0.3.2 — 2026-11-19
 
 ### Fixed
 
